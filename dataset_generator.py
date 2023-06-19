@@ -16,14 +16,17 @@ openai_key = f.read()
 
 f.close()
 
-# this kind of works, chatgpt seems to want to include the initial conditions as part of the model dynamics in it's classification
+# This parsing struggles if trying to find line numbers, it will often return the lines in their entirety
+# however, it seems to work well for returning the name of the function that can be used to define the dynamics
 response_schemas = [
     ResponseSchema(name="code", description="the code simulating the model"),
-    ResponseSchema(name="lines", description="The line numbers of the code corresponding to the model dynamics")
+    ResponseSchema(name="function_name", description="The name of the function implementating the model dynamics")
 ]
 
+# for structured output parsing
 output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
 
+# for structured output parsing
 format_instructions = output_parser.get_format_instructions()
 
 temperature = 0.7
@@ -42,8 +45,12 @@ human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
 chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
 
-formatted_prompt = chat_prompt.format_prompt(programmer_type="college student", language="python", model="SEIRD", method="euler", format_instructions = format_instructions).to_messages()
+formatted_prompt = chat_prompt.format_prompt(programmer_type="college student", language="python", model="SIR", method="euler", format_instructions = format_instructions).to_messages()
 
 output = openai(formatted_prompt)
 
-print(output_parser.parse(output.content))
+parsed_output = output_parser.parse(output.content)
+
+print(parsed_output['code'])
+print("\nname:")
+print(parsed_output['function_name'])
