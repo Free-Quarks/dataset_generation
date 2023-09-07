@@ -12,6 +12,42 @@ from langchain.output_parsers import (
     ResponseSchema
 )
 
+from langchain import PromptTemplate, HuggingFaceHub, LLMChain
+
+
+#------------HUGGINGFACE STUFF------------------------------------
+
+h = open('huggingface_key.txt', 'r')
+
+huggingface_key = h.read()
+
+h.close()
+
+# initialize HF LLM
+flan_t5 = HuggingFaceHub(
+    repo_id="google/flan-t5-xxl",
+    model_kwargs={"temperature":0.5, "max_length": 64},
+    huggingfacehub_api_token=huggingface_key
+)
+
+# build prompt template for simple question-answering
+template = """Question: {question}
+
+Answer: """
+prompt = PromptTemplate(template=template, input_variables=["question"])
+
+llm_chain = LLMChain(
+    prompt=prompt,
+    llm=flan_t5
+)
+
+question = "Which NFL team won the Super Bowl in the 2010 season?"
+
+print(llm_chain.run(question))
+
+
+#------------------------------------------------------------------
+'''
 f = open('openai_key.txt', 'r')
 
 openai_key = f.read()
@@ -71,3 +107,4 @@ f.close()
 with open('output.txt', 'w') as f:
     print(parsed_output['function_name'], file=f)
 f.close()
+'''
