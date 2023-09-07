@@ -1,3 +1,5 @@
+# Check out: https://huggingface.co/blog/starcoder for another model
+
 #import openai
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import (
@@ -42,6 +44,8 @@ programmer_type_list = ["college student", "software engineer"]
 language_list = ["python", "fortran"]
 model_list = ["SIR", "SEIR", "SERID", "SIDARTHE"] # could probably make up things and it would make diff eq's for them
 method_list = ["Euler", "odeint", "RK2", "RK3", "RK4"]
+# if plannign to make a ML model to predict the line numbers for labels, 
+# adding a field for data augmentation from lines numbers could be useful too
 
 template="You are a {programmer_type} that writes {language} code to simulate and plot epidemiology compartimental models."
 system_message_prompt = SystemMessagePromptTemplate.from_template(template)
