@@ -1,9 +1,9 @@
 import torch
 from transformers import pipeline
 
-device = torch.device('mps')
+device = torch.device('cpu')
 
-pipe = pipeline("text-generation", model="HuggingFaceH4/starchat-beta", torch_dtype=torch.bfloat16, device_map="auto")
+pipe = pipeline("text-generation", model="HuggingFaceH4/starchat-beta", torch_dtype=torch.bfloat16, device_map="cpu")
 
 # We use a variant of ChatML to format each message
 prompt_template = "<|system|>\n<|end|>\n<|user|>\n{query}<|end|>\n<|assistant|>"
