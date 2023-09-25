@@ -12,11 +12,13 @@ from langchain.output_parsers import (
     ResponseSchema
 )
 
+from tqdm import tqdm
+
 from langchain import PromptTemplate, HuggingFaceHub, LLMChain
 
 
 #------------HUGGINGFACE STUFF------------------------------------
-
+'''
 h = open('huggingface_key.txt', 'r')
 
 huggingface_key = h.read()
@@ -45,9 +47,9 @@ question = "Which NFL team won the Super Bowl in the 2010 season?"
 
 print(llm_chain.run(question))
 
-
-#------------------------------------------------------------------
 '''
+#------------------------------------------------------------------
+
 f = open('openai_key.txt', 'r')
 
 openai_key = f.read()
@@ -56,15 +58,16 @@ f.close()
 
 # This parsing struggles if trying to find line numbers, it will often return the lines in their entirety
 # however, it seems to work well for returning the name of the function that can be used to define the dynamics
+# makes the output into a json like structure
 response_schemas = [
     ResponseSchema(name="code", description="the entire code"),
-    ResponseSchema(name="function_name", description="The name of the function implementating the model")
+    ResponseSchema(name="model_function", description="The name of the function that contains the model dynamics")
 ]
 
-# for structured output parsing
+# for structured output parsing, converts schema to langhchain object
 output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
 
-# for structured output parsing
+# for structured output parsing, makes the instructions to be passed as a variable to prompt template
 format_instructions = output_parser.get_format_instructions()
 
 temperature = 0.8
@@ -78,33 +81,51 @@ openai = ChatOpenAI(
 
 programmer_type_list = ["college student", "software engineer"]
 language_list = ["python", "fortran"]
-model_list = ["SIR", "SEIR", "SERID", "SIDARTHE"] # could probably make up things and it would make diff eq's for them
+model_list = ["SIR", "SEIR", "SEIRD", "SIDARTHE", "SEIRHD"] # could probably make up things and it would make diff eq's for them
 method_list = ["Euler", "odeint", "RK2", "RK3", "RK4"]
 # if plannign to make a ML model to predict the line numbers for labels, 
 # adding a field for data augmentation from lines numbers could be useful too
 
-template="You are a {programmer_type} that writes {language} code to simulate and plot epidemiology compartimental models."
-system_message_prompt = SystemMessagePromptTemplate.from_template(template)
-human_template="{model} using {method} \n{format_instructions}"
-human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+# chat models have two templates, one is their "role", the system prompt, and the other is the input or "human prompt", kind of like 
+# zero shot learning in a sense
 
-chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+counter = 0
 
-formatted_prompt = chat_prompt.format_prompt(programmer_type="college student", language="python", model="SIDARTHE", method="RK3", format_instructions = format_instructions).to_messages()
+for i in tqdm(range(2)):
+    for programmer_type in tqdm(programmer_type_list):
+        for language in tqdm(language_list):
+            for model in tqdm(model_list):
+                for method in tqdm(method_list):
 
-output = openai(formatted_prompt)
 
-parsed_output = output_parser.parse(output.content)
+                    template="You are a {programmer_type} that writes {language} code to simulate and plot epidemiology compartimental models."
+                    system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+                    human_template="{model} using {method} \n{format_instructions}"
+                    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-print(parsed_output['code'])
-print("\n")
-print(parsed_output['function_name'])
+                    # combining the templates for a chat template
+                    chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
 
-with open('output.py', 'w') as f:
-    print(parsed_output['code'], file=f)
-f.close()
+                    # formatting the prompt with input variables
+                    formatted_prompt = chat_prompt.format_prompt(programmer_type=programmer_type, language=language, model=model, method=method, format_instructions = format_instructions).to_messages()
 
-with open('output.txt', 'w') as f:
-    print(parsed_output['function_name'], file=f)
-f.close()
-'''
+                    # running the model
+                    output = openai(formatted_prompt)
+
+                    # parsing the output into our json like format
+                    parsed_output = output_parser.parse(output.content)
+
+                    #print(parsed_output['code'])
+                    #print("\n")
+
+                    #print(parsed_output['model_function'])
+
+                    with open(f"./data/code/output-code-{counter}.py", 'w') as f:
+                        print(parsed_output['code'], file=f)
+                    f.close()
+
+                    with open(f"./data/code/output-function-{counter}.txt", 'w') as f:
+                        print(parsed_output['model_function'], file=f)
+                    f.close()
+
+                    counter += 1
