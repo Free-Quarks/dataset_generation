@@ -80,7 +80,7 @@ openai = ChatOpenAI(
 )
 
 programmer_type_list = ["college student", "software engineer"]
-language_list = ["python", "fortran"]
+language_list = ["python"]
 model_list = ["SIR", "SEIR", "SEIRD", "SIDARTHE", "SEIRHD"] # could probably make up things and it would make diff eq's for them
 method_list = ["Euler", "odeint", "RK2", "RK3", "RK4"]
 # if plannign to make a ML model to predict the line numbers for labels, 
@@ -98,7 +98,7 @@ for i in tqdm(range(2)):
                 for method in tqdm(method_list):
 
 
-                    template="You are a {programmer_type} that writes {language} code to simulate and plot epidemiology compartimental models."
+                    template="You are a {programmer_type} that writes {language} code to simulate and plot epidemiology compartmental models."
                     system_message_prompt = SystemMessagePromptTemplate.from_template(template)
                     human_template="{model} using {method} \n{format_instructions}"
                     human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
@@ -113,19 +113,23 @@ for i in tqdm(range(2)):
                     output = openai(formatted_prompt)
 
                     # parsing the output into our json like format
-                    parsed_output = output_parser.parse(output.content)
+                    try: 
+                        parsed_output = output_parser.parse(output.content)
 
-                    #print(parsed_output['code'])
-                    #print("\n")
+                        #print(parsed_output['code'])
+                        #print("\n")
 
-                    #print(parsed_output['model_function'])
+                        #print(parsed_output['model_function'])
 
-                    with open(f"./data/code/output-code-{counter}.py", 'w') as f:
-                        print(parsed_output['code'], file=f)
-                    f.close()
+                        with open(f"./data/code/output-code-{counter}.py", 'w') as f:
+                            print(parsed_output['code'], file=f)
+                        f.close()
 
-                    with open(f"./data/code/output-function-{counter}.txt", 'w') as f:
-                        print(parsed_output['model_function'], file=f)
-                    f.close()
+                        with open(f"./data/code/output-function-{counter}.txt", 'w') as f:
+                            print(parsed_output['model_function'], file=f)
+                        f.close()
 
-                    counter += 1
+                        counter += 1
+                    except:
+                        print("Missed a parse")
+                        counter += 1
