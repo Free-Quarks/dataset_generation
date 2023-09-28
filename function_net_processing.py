@@ -93,7 +93,7 @@ def del_nulls(d):
 if __name__ == "__main__":
 
     counter = 0
-    directory = './data/code'
+    directory = './data/code_fails'
     for filename in os.listdir(directory):
         f = os.path.join(directory, filename)
 
@@ -109,14 +109,19 @@ if __name__ == "__main__":
 
             gromet_json = json.loads(gromet)
             time.sleep(1)
-            with open(f"./data/function_nets/{filename[:-3]}.json", "w") as outfile:
-                gromet_collection_dict = (
-                                gromet_json
+            try:
+                with open(f"./data/function_nets/{filename[:-3]}.json", "w") as outfile:
+                    gromet_collection_dict = (
+                                    gromet_json
+                                )
+                    outfile.write(
+                        dictionary_to_gromet_json(
+                            del_nulls(gromet_collection_dict), level=0
                             )
-                outfile.write(
-                    dictionary_to_gromet_json(
-                        del_nulls(gromet_collection_dict), level=0
                         )
-                    )
+            except:
+                gromet_collection_dict = (gromet_json)
+                with open(f"./data/function_nets/{filename[:-3]}.json", "w") as outfile:
+                    outfile.write(f"{dictionary_to_gromet_json(del_nulls(gromet_collection_dict), level=0)}")
         except:
             print(f"{f} failed to process\n")
