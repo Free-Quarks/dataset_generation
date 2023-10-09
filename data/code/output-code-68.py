@@ -44,5 +44,4 @@ def sidarthe_model(params, initial_conditions, t):
         H[i] = H[i-1] + dHdt * (t[i] - t[i-1])
         E[i] = E[i-1] + dEdt * (t[i] - t[i-1])
     return S, I, D, A, R, T, H, E
-}
 

@@ -4,17 +4,17 @@ def SIR_model(x, t, beta, gamma):
     S, I, R = x
     N = S + I + R
     dSdt = -beta * S * I / N
-dIdt = beta * S * I / N - gamma * I
-dRdt = gamma * I
+    dIdt = beta * S * I / N - gamma * I
+    dRdt = gamma * I
     return [dSdt, dIdt, dRdt]
 
 def RK4_step(x, t, dt, beta, gamma):
     k1 = dt * SIR_model(x, t, beta, gamma)
-k2 = dt * SIR_model(x + 0.5 * k1, t + 0.5 * dt, beta, gamma)
-k3 = dt * SIR_model(x + 0.5 * k2, t + 0.5 * dt, beta, gamma)
-k4 = dt * SIR_model(x + k3, t + dt, beta, gamma)
-x_new = x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
-t_new = t + dt
+    k2 = dt * SIR_model(x + 0.5 * k1, t + 0.5 * dt, beta, gamma)
+    k3 = dt * SIR_model(x + 0.5 * k2, t + 0.5 * dt, beta, gamma)
+    k4 = dt * SIR_model(x + k3, t + dt, beta, gamma)
+    x_new = x + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+    t_new = t + dt
     return x_new, t_new
 
 def simulate_SIR_model(S0, I0, R0, beta, gamma, T, dt):

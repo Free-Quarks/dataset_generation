@@ -37,5 +37,5 @@ def run_simulation(initial_conditions, params, t_max, dt):
     plt.ylabel('Population')
     plt.legend()
     plt.show()
-}
+
 

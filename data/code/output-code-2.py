@@ -37,5 +37,4 @@ def simulate_SIR(S0, I0, R0, N, beta, gamma, t_max, h):
     plt.title('SIR Model')
     plt.legend()
     plt.show()
-}
 

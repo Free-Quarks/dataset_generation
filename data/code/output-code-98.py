@@ -12,7 +12,7 @@ def seirhd_model(t, y, N, beta, sigma, gamma, delta, alpha):
     return dSdt, dEdt, dIdt, dRdt, dHdt, dDdt
 
 
-def run_seirhd_model(N, initial_conditions, parameters, t)
+def run_seirhd_model(N, initial_conditions, parameters, t):
     beta, sigma, gamma, delta, alpha = parameters
     S0, E0, I0, R0, H0, D0 = initial_conditions
     y0 = S0, E0, I0, R0, H0, D0

@@ -37,5 +37,5 @@ def simulate_and_plot_SEIRHD(S0, E0, I0, R0, H0, D0, beta, sigma, gamma, eta, mu
     plt.legend()
     plt.title('Simulation of SEIRHD Model')
     plt.show()
-}
+
 

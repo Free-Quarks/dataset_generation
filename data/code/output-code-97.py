@@ -39,5 +39,5 @@ def run_seirhd_model(S0, E0, I0, R0, H0, D0, N, beta, sigma, gamma, rho, delta, 
     plt.title('SEIRHD Model')
     plt.legend()
     plt.show()
-}
+
 

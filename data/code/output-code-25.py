@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 def SIR_model_beta_gamma(S, I, R, beta, gamma):
     N = S + I + R
     dSdt = -beta * S * I / N
-dIdt = beta * S * I / N - gamma * I
-dRdt = gamma * I
+    dIdt = beta * S * I / N - gamma * I
+    dRdt = gamma * I
     return dSdt, dIdt, dRdt
 
 

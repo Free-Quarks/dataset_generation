@@ -14,7 +14,7 @@ def seirhd_model(params, t):
     return [dSdt, dEdt, dIdt, dRdt, dHdt, dDdt]
 
 
-def euler_integration(model, initial_conditions, t)
+def euler_integration(model, initial_conditions, t):
     num_compartments = len(initial_conditions)
     num_time_steps = len(t)
     compartments = np.zeros((num_time_steps, num_compartments))
