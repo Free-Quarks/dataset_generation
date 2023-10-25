@@ -79,6 +79,14 @@ openai = ChatOpenAI(
     openai_api_key=openai_key
 )
 
+# potential other options: 
+# coding styles
+# student/graduate student, postdoc, expert, layperson, verbose, concise/compact, efficient, inefficient,
+# beginner, intermediate, expert, messy, clean, obfuscated, clear
+# look into taxomology of code_style
+# compartmental model with 3 compartments, 4 compartments, 5 compartments
+# language - fortran/python/matlab
+
 programmer_type_list = ["college student", "software engineer"]
 language_list = ["python"]
 model_list = ["SIR", "SEIR", "SEIRD", "SIDARTHE", "SEIRHD"] # could probably make up things and it would make diff eq's for them
