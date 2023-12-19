@@ -73,7 +73,7 @@ f.close()
 # This parsing struggles if trying to find line numbers, it will often return the lines in their entirety
 # however, it seems to work well for returning the name of the function that can be used to define the dynamics
 response_schemas = [
-    ResponseSchema(name="code", description="Generated code"),
+    ResponseSchema(name="code", description="Insert the Generated code within 'code' key"),
     ResponseSchema(name="function_name", description="The name of the function implementating the model")
 ]
 
@@ -94,16 +94,12 @@ temperature = 0.8
 #openai = ChatOpenAI(
 #    temperature=temperature,
 #    model_name='gpt-3.5-turbo',
-#    openai_api_key='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',
 #)
-os.environ['OPENAI_API_KEY'] = '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'
-openai_api_key = os.getenv('OPENAI_API_KEY')
 # initialize the models
 openai = ChatOpenAI(
     temperature=temperature,
     model_name='gpt-4',
-    #openai_api_key='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',
-    openai_api_key= openai_api_key, #mine
+    openai_api_key= openai_api
 )
 
 
@@ -163,13 +159,14 @@ for i in tqdm(range(2)):
                     for method in tqdm(method_list):
                         for documentation in tqdm(documentation_list):
 
-                            template="You are a {$programmer_type} that writes {coding_style} code in {language} programming language to simulate and plot epidemiology compartmental models that includes {documentation} documentation"
+                            template="You are a {programmer_type} that writes {coding_style} code in {language} programming language to simulate and plot epidemiology compartmental models that includes {documentation} documentation"
                             #template = "You write a {programmer_type} {language} programming code that writes {coding_style} code to simulate and plot epidemiology compartmental models that includes {documentation} documentation"
                             system_message_prompt = SystemMessagePromptTemplate.from_template(template)
                             #system_message_prompt = PromptTemplate.from_template(template)
                             human_template="{model} using {method} \n{format_instructions}"
                             #human_message_prompt = HumanMessagePromptTemplate.from_template(template)
                             human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+                            another_prompt = SystemMessagePromptTemplate.from_template("Make sure that the code snippet got inside 'code' key and only return the json structured that is asked for without additional content.")
                             #prompt = PromptTemplate(
                             #        template="You are a {programmer_type} that writes {coding_style} code in {language} programming language to simulate and plot epidemiology compartmental models that includes          {documentation} documentation {model} using {method} \n{format_instructions}",
                              #       input_variables=["programmer_type","coding_style","language","model","method","documentation"],
@@ -179,7 +176,7 @@ for i in tqdm(range(2)):
                             #formatted_prompt = prompt.format_prompt(programmer_type=programmer_type,coding_style=coding_style, language=language,model=model, method=method,documentation=documentation)
 
                             # combining the templates for a chat template
-                            chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+                            chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt,human_message_prompt])
                             #chat_prompt = PromptTemplate.from_template([system_message_prompt, human_message_prompt])
 
                             # formatting the prompt with input variables
@@ -202,14 +199,38 @@ for i in tqdm(range(2)):
                             # running the model
                             output = openai(formatted_prompt)
                             print(f"output:{output}")
+
+
+                            another_prompt = SystemMessagePromptTemplate.from_template("Give a json from {output} where the code snippet generated is the value of key ‘code’ and key-value pair of ‘function_name’.")
+                            #another_prompt = SystemMessagePromptTemplate.from_template("Give a json from {output} where the code snippet generated is the value of key ‘code’ with key-value pair of ‘function_name’ in the json.")
+                            '''another_prompt =
+                            SystemMessagePromptTemplate.from_template("Give a
+                                                                      json from
+                                                                      {output}
+                                                                      where the
+                                                                      code
+                                                                      snippet
+                                                                      generated
+                                                                      is the
+                                                                      value of
+                                                                      key
+                                                                      'code'
+                                                                      along
+                                                                      with
+                                                                      key-value
+                                                                      pair of
+                                                                      'function_name'. in the json”)
+                            '''
+                            chat_prompt = ChatPromptTemplate.from_messages([another_prompt])
+                            formatted_prompt=chat_prompt.format_prompt(output=output,format_instructions =format_instructions).to_messages()
+                            new_output = openai(formatted_prompt)
+                            print(f"new_output:{new_output}")
                             #print(f"--->{output.content}<---------------------")
                             #conversation = ConversationChain(memory=memory,
                             #                                 prompt=chat_prompt,
                             #                                 llm=openai)
                             #output = conversation.predict(input=formatted_promt)
                             #output_content = output.content
-                            parsed_output = output_parser.parse(output)
-                            print(f"|||||=========: {parsed_output}")
 
                             #print(type(output_content))
                             #output_dict = json.loads(output_content)
@@ -224,8 +245,9 @@ for i in tqdm(range(2)):
 
                             # parsing the output into our json like format
                             try:
-                                parsed_output =output_parser.parse(output) #json.loads(output) #output_parser.parse(output.content)
-                                #parsed_output = output_parser.parse(json.loads(output)) #json.loads(output) #output_parser.parse(output.content)
+                                parsed_output=output_parser.parse(new_output.content) #json.loads(output) #output_parser.parse(output.content)
+                                print(type(parsed_output))
+                                #parsed_output =output_parser.parse(json.loads(parsing_output)) #json.loads(output) #output_parser.parse(output.content)
                                 #output_content = output.content
                                 print("-----------------")
                                 #print(f"output_content:{output_content}")
@@ -247,31 +269,47 @@ for i in tqdm(range(2)):
                                 else:
                                     print("Code key is not present in the dictionary.")
                                 '''
-                                field_names = OutputModel.__fields__.keys()
-                                print(f"field_names:", {field_names})
+                                #field_names = OutputModel.__fields__.keys()
+                                #print(f"field_names:", {field_names})
                                 #print(output_dict['code'])
-                                print(f"parsed_output.code:",{parsed_output['code']})
-                                print(f"parsed_output.func:",{parsed_output['function_name']})
-                                #print(code_lines[0])
+                                # Converting the Pydantic model to a dictionary
+                                parsed_output_dict = parsed_output.dict()
+                                print(f"parsed_output_dict: {parsed_output_dict}")
+
+                                # Accessing the 'name' and 'film_names' fields from the dictionary
+                                code_snippet = parsed_output_dict['code']
+                                code_func = parsed_output_dict['function_name']
+
+                                print(f"code_snippet: {code_snippet}")
                                 print("\n")
+                                print(f"code_fun: {code_func}")
+
+                                #print(f"parsed_output.code:,{parsed_output.code}")
+                                #print("|")
+                                #print(f"parsed_output.func:,{parsed_outputfunction_name}")
+                                #print("||")
+                                #print(f"parsed_output[code]:",{parsed_output['code']})
+                                #print(f"parsed_output[func]:",{parsed_output['function_name']})
+                                #print(code_lines[0])
                                 #print(code_lines[1])
 
                                 #print(output_dict['function_name'])
 
-                                with open(f"./data/code/GPT4/SIR/expert/test-{model}-{programmer_type}-{language}-{coding_style}-{method}-{documentation}.txt", 'w') as f:
+                                '''with open(f"./data/code/GPT4/SIR/expert/test-{model}-{programmer_type}-{language}-{coding_style}-{method}-{documentation}.txt", 'w') as f:
                                     #print(code_lines[0])
                                     #print(output_dict, file=f)
-                                    f.write(json.dumps(parsed_output, default= str, indent=4))
+                                    #f.write(json.dumps(parsed_output, default= str, indent=4))
                                 f.close()
+                                '''
 
                                 with open(f"./data/code/GPT4/SIR/expert/output-code-{model}-{programmer_type}-{language}-{coding_style}-{method}-{documentation}.py", 'w') as f:
                                     #print(code_lines[0])
-                                    print(parsed_output['code'], file=f)
+                                    print(code_snippet, file=f)
                                 f.close()
 
                                 with open(f"./data/code/GPT4/SIR/expert/output-function-{model}-{programmer_type}-{language}-{coding_style}-{method}-{documentation}.txt", 'w') as f:
                                     #print(code_lines[1])
-                                    print(parsed_output['function_name'], file=f)
+                                    print(code_func, file=f)
                                 f.close()
 
                                 counter += 1
