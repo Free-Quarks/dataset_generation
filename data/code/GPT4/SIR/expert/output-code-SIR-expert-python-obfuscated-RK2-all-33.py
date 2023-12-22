@@ -1,0 +1,1 @@
+<obfuscated Python bytecode here>
