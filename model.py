@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch import nn
-
+from torch.utils.data import DataLoader, TensorDataset
 # data ingestion
 data_dir = "./data/function_nets_tokenized"
 labels_dir = "./data/labels_tokenized"
@@ -70,7 +70,7 @@ for filename in os.listdir(data_dir):
         if output_id == file_id and not label_found:
             o = os.path.join(labels_dir, outputname)
             with open(o,'r') as out_file:
-                lines = out_file.readline()
+                lines = out_file.readlines()
                 out_file.close()
             for line in lines:
                 line_split = [line]
@@ -168,17 +168,25 @@ print(f"imported_max={imported_max}")
 print(f"imported_method_max={imported_method_max}")
 print(f"Total vocab: {function_max+primitive_max+predicate_max+expression_max+literal_max+abstract_max+imported_max+imported_method_max}")
 
+# converting the output into indicies as well
+i_output = []
+for entry in output:
+    ind = int(entry[0][8:])
+    i_output.append(ind)
+
 # program length padding
 for fun_net in np_train_data:
     while len(fun_net) < 90:
         padded_sent = np.zeros(65)
         fun_net.append(padded_sent)
 
+np_output = np.array(i_output, dtype=int)
 np_train_data = np.array(np_train_data, dtype=int)
-print(np_train_data.shape)
+print("np_train_data shape:", np_train_data.shape)
 
-
-dataset = [np_train_data, output]
+dataset = []
+dataset.append(np_train_data)
+dataset.append(np_output.reshape((90,1)))
 # I now need to assign an index for each word in my vocabulary, and replace the words in 
 # the data with those indexes, will need to pad each sentences too up to the longest in the data
 
@@ -192,6 +200,69 @@ dataset = [np_train_data, output]
 # and then another one for every number from 0-500, just adding them together
 # when relevant, for now let's assume 50 for each words, so vocab of 400
 
-embedding = nn.Embedding(800, 3)
+embedding = nn.Embedding(1500, 4)
 input = torch.LongTensor([[3, 7, 34]])
 #print(embedding(torch.from_numpy(np_train_data[0])))
+
+class SimpleModel(torch.nn.Module):
+
+    def __init__(self):
+        super(SimpleModel, self).__init__()
+
+        self.embedding = torch.nn.Embedding(1500, 4)
+        #self.lstm = torch.nn.LSTM(4, 8, 1)
+        self.linear = torch.nn.Linear(4, 1)
+        self.activation = torch.nn.ReLU()
+
+    def forward(self, x):
+        x = self.embedding(x)
+        #x, y = self.lstm(x)
+        x = self.linear(x)
+        x = self.activation(x)
+        x = x.sum(dim=1) # sum the feature vectors of the each sentence, one float per sentence
+        x = x.sum(dim=1) # sum each sentence of a page, one float per page
+
+        return x
+    
+simplemodel = SimpleModel()
+
+num_epochs = 2
+device = torch.device('cpu')
+model = simplemodel.to(device)
+x_values = dataset[0]
+y_values = dataset[1]
+tensor_x = torch.IntTensor(x_values)
+print("tensor_x shape:", tensor_x.shape)
+tensor_y = torch.Tensor(y_values)
+
+training_dataset = TensorDataset(tensor_x, tensor_y)
+loader = DataLoader(training_dataset)
+optimizer = torch.optim.Adam(simplemodel.parameters(), lr=0.005, weight_decay=5e-4)
+
+criterion = torch.nn.MSELoss(reduction='mean')
+
+model.train()
+
+for epoch in range(num_epochs):
+
+    for batch in loader:
+        # data in this is a list of data in the size of the batch
+        optimizer.zero_grad()
+        out = model(batch[0])
+        loss = criterion(out, batch[1])
+        loss.backward()
+        optimizer.step()
+
+    print("------Epoch updates-------")
+    print("input shape: ", batch[0].shape)
+    print('out shape: ', out.shape)
+    print('label shape: ', batch[1].shape)
+    print('out: ', out)
+    print('label: ', batch[1])
+    print('loss: ',loss)
+
+
+
+
+
+
