@@ -129,11 +129,11 @@ for i in tqdm(range(2)):
 
                         #print(parsed_output['model_function'])
 
-                        with open(f"./data/code/output-code-{counter}.py", 'w') as f:
+                        with open(f"../../data/code/output-code-{counter}.py", 'w') as f:
                             print(parsed_output['code'], file=f)
                         f.close()
 
-                        with open(f"./data/code/output-function-{counter}.txt", 'w') as f:
+                        with open(f"../../data/code/output-function-{counter}.txt", 'w') as f:
                             print(parsed_output['model_function'], file=f)
                         f.close()
 
