@@ -311,9 +311,9 @@ def tokens_to_indices(output_tokens_directory, output_labels_directory):
 
 if __name__ == "__main__":
 
-    fn_directory = '../../data/function_nets'
-    labels_directory = '../../data/labels'
-    output_tokens_directory = '../../data/function_nets_tokenized'
-    output_labels_directory = '../../data/labels_tokenized'
+    fn_directory = '../../../data/function_nets'
+    labels_directory = '../../../data/labels'
+    output_tokens_directory = '../../../data/function_nets_tokenized'
+    output_labels_directory = '../../../data/labels_tokenized'
 
     tokenize(fn_directory, labels_directory, output_tokens_directory, output_labels_directory)
