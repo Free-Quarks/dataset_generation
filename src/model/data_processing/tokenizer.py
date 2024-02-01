@@ -26,12 +26,9 @@ def tokenize(fn_directory, labels_directory, output_tokens_directory, output_lab
             fn_file.close()
 
         # construct a sequence of sequences of tokens
+        print(filename)
         full_seq = []
         for i, obj in enumerate(fn_data['modules'][0]['fn_array']):
-            #print('----------------')
-            #print('top level')
-            #print(obj['b'][0]['function_type'])
-            #print('contains')
             t = toke()
             t.type = obj['b'][0]['function_type']
             t.idx = i+1
@@ -144,6 +141,9 @@ def tokens_to_indices(output_tokens_directory, output_labels_directory):
     This allows replacement while also counting max vocab. 
     Will need to run through again to pad by longest sentence with 0's
     """
+    set_sentence_max = 75 # This is the max number of tokens in a sentence we support/expect
+    set_program_max = 90 # This is the max number of sentences we support/expect
+
     function_max = 0
     predicate_max = 0
     primitive_max = 0
@@ -255,7 +255,7 @@ def tokens_to_indices(output_tokens_directory, output_labels_directory):
                         np_token = count + 1400
                         imported_count += 1
                 np_line.append(np_token)
-            while len(np_line) < 65:
+            while len(np_line) < set_sentence_max:
                 np_line.append(0)
             np_fun_net.append(np_line)
         np_train_data.append(np_fun_net)
@@ -295,8 +295,8 @@ def tokens_to_indices(output_tokens_directory, output_labels_directory):
 
     # program length padding
     for fun_net in np_train_data:
-        while len(fun_net) < 90:
-            padded_sent = np.zeros(65)
+        while len(fun_net) < set_program_max:
+            padded_sent = np.zeros(set_sentence_max)
             fun_net.append(padded_sent)
 
     np_output = np.array(i_output, dtype=int)
@@ -311,9 +311,9 @@ def tokens_to_indices(output_tokens_directory, output_labels_directory):
 
 if __name__ == "__main__":
 
-    fn_directory = '../../../data/function_nets'
-    labels_directory = '../../../data/labels'
-    output_tokens_directory = '../../../data/function_nets_tokenized'
-    output_labels_directory = '../../../data/labels_tokenized'
+    fn_directory = '../../data/function_nets'
+    labels_directory = '../../data/labels'
+    output_tokens_directory = '../../data/function_nets_tokenized'
+    output_labels_directory = '../../data/labels_tokenized'
 
     tokenize(fn_directory, labels_directory, output_tokens_directory, output_labels_directory)
