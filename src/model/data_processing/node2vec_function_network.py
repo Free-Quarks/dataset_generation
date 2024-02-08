@@ -263,23 +263,3 @@ for i, file in enumerate(files):
 
 print(f'results_cosine_similarity:',results_cosine_similarity)
 # Initialize an empty dictionary to store the results
-'''results = {}
-
-# Loop through each file
-for i, file in enumerate(function_net_txt_files_dir):
-    # Read the content of the current file into a vector
-    with open(os.path.join(function_net_txt_files_dir, file), 'r') as f:
-        vec_current = np.array([float(x) for x in f.read().split()])
-
-    # Compare the current file with all other files
-    for j in range(i + 1, len(files)):
-        # Read the content of the other file into another vector
-        with open(os.path.join(directory, files[j]), 'r') as f:
-            vec_other = np.array([float(x) for x in f.read().split()])
-
-        # Calculate the cosine similarity
-        similarity = cosine_similarity(vec_current, vec_other)
-
-        # Store the result in the dictionary
-        key = f"{files[i]} vs {files[j]}"
-        results[key] = similarity'''
