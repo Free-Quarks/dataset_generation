@@ -211,10 +211,9 @@ for i, file in enumerate(files):
     df0 = dataframe(path)
     G0 = graph(df0)
     # Precompute probabilities and generate random walks
-    node2vec0 = Node2Vec(G0, dimensions=20, walk_length=10, num_walks=200, workers=4)
-
+    node2vec0 = Node2Vec(G0, dimensions=6, walk_length=2, num_walks=3, workers=4)
     # Node embeddings
-    model0 = node2vec0.fit(window=10, min_count=1, batch_words=4)
+    model0 = node2vec0.fit(window=4, min_count=1, batch_words=4)
     # access embedding -- from `wv` attribute which is word vector
     embeddings0 = model0.wv
     all_embeddings0 = []
@@ -231,9 +230,9 @@ for i, file in enumerate(files):
             pathj = os.path.join(function_net_txt_files_dir, files[j])
             df1 = dataframe(pathj)
             G1 = graph(df1)
-            node2vec1 = Node2Vec(G1, dimensions=20, walk_length=10, num_walks=200, workers=4)
+            node2vec1 = Node2Vec(G1, dimensions=6, walk_length=2, num_walks=3, workers=4)
             # Node embeddings
-            model1 = node2vec1.fit(window=10, min_count=1, batch_words=4)
+            model1 = node2vec1.fit(window=4, min_count=1, batch_words=4)
             # access embedding -- from `wv` attribute which is word vector
             embeddings1 = model1.wv
 
@@ -247,19 +246,21 @@ for i, file in enumerate(files):
             similarity_matrix_cosine_01 = cosine_similarity(all_embeddings0, all_embeddings1)
 
             count = np.sum((similarity_matrix_cosine_01 > 0.5) & (similarity_matrix_cosine_01 <= 1))
-            print("Number of vectors with cosine similarity between  0.5 and  1:", count)
+            #print("Number of vectors with cosine similarity between  0.5 and  1:", count)
             # Calculate the percentage of similar vectors
             total = similarity_matrix_cosine_01.size
-            print("Total:", total)
+            #print("Total:", total)
             percentage_similar = (count / total) * 100
 
             # Store the result in the dictionary
             key = f"{files[i]} vs {files[j]}"
-            value= f"Percent similarity is {percentage_similar}"
+            value= f"{count}/{total};Percent similarity is {percentage_similar}"
             #print(key)
             results_cosine_similarity[key] = value
 
 
 
-print(f'results_cosine_similarity:',results_cosine_similarity)
+
+with open('outfile.txt', 'w') as outfile:
+    print(f'results_cosine_similarity:',results_cosine_similarity)
 # Initialize an empty dictionary to store the results
