@@ -195,7 +195,6 @@ def depth_first_search(G, node, parent=None, depth=0):
             depths.extend(depth_first_search(G, neighbor, node, depth+1))
     return depths
 
-
 # Calculate the sum of depths for all nodes
 def calculate_sum_depth(G):
     depths = []
