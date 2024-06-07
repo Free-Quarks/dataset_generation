@@ -1,8 +1,13 @@
 import numpy as np
-import os, re
+import os, re, time
 import pandas as pd
 import torch
 from torch_geometric.data import Data
+import torch_geometric.transforms as T
+from torch_geometric.transforms import RandomLinkSplit
+from torch_geometric.nn import GCNConv, GAE, InnerProductDecoder, VGAE
+from torch_geometric.utils import train_test_split_edges
+import torch.nn.functional as F
 import networkx as nx
 from torch_geometric.utils import from_networkx
 from sklearn.preprocessing import LabelEncoder
@@ -16,7 +21,12 @@ DIRECTORY_TO_CSV_FILES = '../../../data/output_csv_graphs'
 filename1 = os.path.join(DIRECTORY_TO_CSV_FILES, "output-code-1-graph.csv")
 filename2 = os.path.join(DIRECTORY_TO_CSV_FILES, "output-code-2-graph.csv")
 
-
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    device = torch.device('mps')
+else:
+    device = torch.device('cpu')
 
 #df = pd.DataFrame(df)
 
@@ -121,9 +131,9 @@ def create_graph(df, df_nodes_relationship):
         properties = row['properties']
 
         # Combine labels and properties into a single dictionary
-        attributes = {'labels': labels}
+        attributes = {'labels': labels, 'properties': properties}
 
-        G.add_node(node_id, **attributes)
+        G.add_node(node_id, label=labels) #, **properties )
     for i, row in df_nodes_relationship.iterrows():
         start_node_id = row['start_node_id']
         end_node_id = row['end_node_id']
@@ -199,30 +209,214 @@ print("---------------------------------")'''
 #G.add_edges_from(include_edges)
 
 
-
-#pos = nx.spring_layout(G)
-
-#nx.draw(G, with_labels=True)
-import torch_geometric.transforms as T
-from torch_geometric.data import HeteroData
 def data_for_GCN(df, df_nodes_relationship):
     #edge_index = torch.tensor(list(G.edges)).t().contiguous()
     #x = torch.tensor([attributes for _, attributes in G.nodes(data=True)])
 
     print(df.head())
-    nodes_list = np.asarray(df['node_id'].astype(int).values)
-    print(f'nodes_list:{nodes_list}')
+
 
     # 'labels' are expression, opo, opo, etc...
     # Make use of label encoding to convert string labels to integers
     label_encoder = LabelEncoder()
     new_labels_list = label_encoder.fit_transform(df['labels'].values)
+    print(f'new_labels_list:{new_labels_list}')
+    print(f'type(new_labels_list):{type(new_labels_list)}')
+    print(df['node_id'].astype(int).values)
 
-    source_nodes = df_nodes_relationship['start_node_id'].values
-    target_nodes = df_nodes_relationship['end_node_id'].values
+    #nodes_list =torch.tensor(np.asarray(df['node_id'].astype(int).values))
+    nodes_list = df['node_id'].astype(int).values.tolist()
+    print(f'nodes_list:{nodes_list}')
+    #new_nodes_list = torch.tensor([i for i in range(len(nodes_list))])
+    new_nodes_list = [i for i in range(len(nodes_list))]
+    print(f'new_nodes_list:{new_nodes_list}')
+    new_labels_list = torch.tensor(new_labels_list)
 
-    edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long)
+    features_data = {'nodes_list': new_nodes_list, 'new_labels_ist': new_labels_list}
+    features_df = pd.DataFrame(features_data)
+
+    x = features_df.to_numpy(dtype=np.float32)
+    x = torch.from_numpy(x)
+
+    #print(f'features_df:{features_df}')
+
+    source_nodes = df_nodes_relationship['start_node_id'].values.tolist()
+    target_nodes = df_nodes_relationship['end_node_id'].values.tolist()
+
+    print(f'source_nodes:{source_nodes}')
+
+    new_source_nodes = [nodes_list.index(start) for start in source_nodes]
+    print(f'new_source_nodes:{new_source_nodes}')
+    new_target_nodes = [nodes_list.index(start) for start in target_nodes]
+    print(f'new_target_nodes:{new_target_nodes}')
+
+    edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long).t()# to slow
+
+    #combined_array = np.vstack((np.hstack(source_nodes), np.hstack(target_nodes)))
+    print(f'edge_index:{edge_index}')
+    edge_index = torch.tensor([new_source_nodes, new_target_nodes], dtype=torch.long).t()
+
+    print(f'-------------> newedge_index:{edge_index}')
+    # Convert numpy array to a torch tensor
+    #edge_index = torch.tensor(combined_array)
     # create data object  to do geometric gnn
-    data = Data(x=torch.tensor(nodes_list), edge_index=edge_index,
-                y=torch.tensor(new_labels_list, dtype=torch.long))
+    data = Data(x=x, edge_index=edge_index.t().contiguous(),)
+                #y=torch.tensor(new_labels_list, dtype=torch.long))
     print(f'data:{data}')
+    print(f'data.num_nodes:{data.num_nodes}')
+    print(f'data.num_features:{data.num_features}')
+    return data
+
+
+data = data_for_GCN(df0, df0_nodes_relationship)
+
+print(data.edge_index.shape)
+
+
+'''def create_adjacency_matrix(V, edges):
+    adj_matrix = torch.zeros((V, V), dtype=torch.float32)
+    print('edges[ 0]:', edges[0])
+    print('edges[1]:', edges[1])
+    adj_matrix[edges[0], edges[1]] = 1
+    adj_matrix[edges[1], edges[0]] = 1
+
+    return adj_matrix
+
+
+adj_matrix = create_adjacency_matrix(len(data.x), data.edge_index.t())
+'''
+from torch_geometric.utils import to_dense_adj
+adj_matrix = to_dense_adj(data.edge_index, max_num_nodes=len(data.x))[0]
+
+
+one_in_A = (adj_matrix == 1).any(dim=0)
+
+print(f'adj_matrix: {adj_matrix}')
+
+print(f'one_in_A: {one_in_A}')
+
+'''adjacency_matrix = torch.zeros((len(data.x), len(data.x)))
+
+# Set the adjacency matrix based on the edge indices
+for i, j in zip(*data.edge_index):
+    adjacency_matrix[i, j] = 1
+    adjacency_matrix[j, i] = 1  # Since the adjacency matrix is symmetric
+
+print(f'adjacency_matrix: {adjacency_matrix}')'''
+
+
+print(f'len(data): {len(data.x)}')
+print(f'data.x: {data.x}')
+print(f'data.edge_index: {data.edge_index}')
+print(f'data.edge_index.t(): {data.edge_index.t()}')
+print(f'data.edge_index.t().shape: {data.edge_index.t().shape}')
+
+# has positive edges where the positive edges are in the graph, where d
+#transform = RandomLinkSplit(is_undirected=True)
+
+transform = T.Compose([
+    T.ToDevice(device),
+    T.RandomLinkSplit(num_val=0., num_test=0., is_undirected=True,
+                      split_labels=True, #disjoint_train_ratio=0.3,
+                      add_negative_train_samples=False),#, neg_sampling_ratio=0),
+])
+
+#train_data, val_data, test_data = transform(data)
+data, _, _ = transform(data)
+
+# parameters
+#out_channels = 2
+num_features = 2
+epochs = 100
+print(f'data.num_features:{num_features}')
+
+#model = GAE(GCNEncoder(num_features, out_channels))
+
+
+#data = train_test_split_edges(data)
+
+#################
+# Going through pytorch geometric's official github page on autoencoders
+# https://github.com/pyg-team/pytorch_geometric/blob/master/examples/autoencoder.py -- for our purpose
+##################
+
+
+class VGCNEncoder(torch.nn.Module):
+    def __init__(self, in_channels, hidden=68):
+        super(VGCNEncoder, self).__init__()
+        # use Graph Convolutional Network where we have 2 comvolutional NN
+        self.conv1 = GCNConv(in_channels, 2 * hidden, cached=True) # here output channels is double of the channels for 2 convolutional NN
+        self.conv2_mu = GCNConv(2*hidden, hidden, cached=True)
+        self.conv2_logstd = GCNConv(2*hidden, hidden, cached=True)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        mu = self.conv2_mu(x, edge_index)
+        log_std = self.conv2_logstd(x, edge_index)
+        return mu, log_std
+
+
+
+# Call VGAE and apply our encoder
+model = VGAE(VGCNEncoder(num_features).to(device), decoder=InnerProductDecoder() )
+model = model.to(device) # move model to gpu if available
+
+# Initialize the optimizer
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+print(f'dir(model):{dir(model)}')
+print(f'data:{data}')
+#print(f'data.x.shape:{data.shape}')
+print(f'data.pos_edge_label_index:{data.pos_edge_label_index}')
+
+print(f'data.edge_index.shape:{data.edge_index.shape}')
+print("|||||||||||||||||||||")
+print(f'data.x:{data}')
+print("---------------")
+print(f'data.edge_index:{data.edge_index}')
+
+
+def train():
+    '''
+    Train the model
+    Returns: loss
+
+    '''
+    model.train() # puts model in training mode
+    optimizer.zero_grad()
+    z = model.encode(data.x, data.edge_index) #encodes the data
+    print(f'z={z}')
+
+    reconstructed = model.decode(z, data.edge_index)
+    print(f'reconstructed={reconstructed}')
+    loss = model.recon_loss(z, data.pos_edge_label_index)  # compute the reconstructed loss
+    print(f'loss={loss}')
+
+    loss = loss + (1 / data.num_nodes) * model.kl_loss()
+    kl_loss = model.kl_loss()
+    print(f'----> kl_loss={kl_loss}')
+    loss.backward()  # backprop
+    optimizer.step()  # step on the optimizer
+    print(f'----> float(loss): {float(loss)}')
+    return float(loss) #z #float(loss)
+
+def evaluate(data):#, neg_edge):
+    model.eval() # puts model in evaluation mode
+    z = model.encode(data.x, data.edge_index) #encode the data with edges
+    #print(f'----> data.pos_edge_label_index={data.pos_edge_label_index}')
+    # test data with positive and negative edge label index
+    ev = model.test(z, data.pos_edge_label_index, data.neg_edge_label_index)
+    print(f'----> ev={ev}')
+    return ev
+
+
+
+epohchs = 100
+times = []
+for epoch in range(1, epochs + 1):
+    start = time.time()
+    z = train()
+    '''auc, avg_prec = evaluate(tdata) #, test_data.neg_edge_label_index)
+    print(f'Epoch: {epoch} ==> AUC: {auc:.4f}, Avg. Precision: {avg_prec:.4f}')
+    times.append(time.time() - start)
+print(f"Median time per epoch: {torch.tensor(times).median():.4f}s")'''
