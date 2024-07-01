@@ -4,18 +4,45 @@ import pandas as pd
 import torch
 from torch_geometric.data import Data
 import torch_geometric.transforms as T
+from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.transforms import RandomLinkSplit
 from torch_geometric.nn import GCNConv, GAE, InnerProductDecoder, VGAE
+from torch_geometric.transforms import AddLaplacianEigenvectorPE
 from torch_geometric.utils import train_test_split_edges
 import torch.nn.functional as F
 import networkx as nx
 from torch_geometric.utils import from_networkx
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout
 from node2vec import Node2Vec
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 # Directory with graphs data with csv files
+
+from sklearn.preprocessing import OneHotEncoder
+
+# Assuming your labels are stored in a list named 'labels'
+labels = ['x', 'y', 'z']
+
+# Convert labels to integers
+integer_labels = {label: i for i, label in enumerate(labels)}
+
+# Create a 2D array of shape (n_samples, 1) filled with integer labels
+encoded_labels = [[integer_labels[label]] for label in labels]
+
+# Initialize the OneHotEncoder
+enc = OneHotEncoder(sparse=False)
+
+# Fit and transform the encoded labels
+onehot_encoded = enc.fit_transform(encoded_labels)
+
+# Convert the result to a DataFrame for easy viewing
+import pandas as pd
+onehot_encoded_df = pd.DataFrame(onehot_encoded, columns=enc.get_feature_names_out())
+
+print(onehot_encoded_df)
+
+
 DIRECTORY_TO_CSV_FILES = '../../../data/output_csv_graphs'
 
 filename1 = os.path.join(DIRECTORY_TO_CSV_FILES, "output-code-1-graph.csv")
@@ -126,6 +153,7 @@ def create_graph(df, df_nodes_relationship):
     G = nx.Graph()
 
     for i, row in df.iterrows():
+        print(f'i:{i}')
         node_id = row['node_id']
         labels = row['labels']
         properties = row['properties']
@@ -218,8 +246,40 @@ def data_for_GCN(df, df_nodes_relationship):
 
     # 'labels' are expression, opo, opo, etc...
     # Make use of label encoding to convert string labels to integers
+
+    unique_labels = df['labels'].unique()
+    print(f'unique_labels: {unique_labels}')
+
+    label_mapping = {label: idx for idx, label in enumerate(unique_labels)}
+    print(f'label_mapping: {label_mapping}')
+
+    df['labels'] = df['labels'].map(label_mapping)
+    print(f"df[labels].to;ist() after mapping: {df['labels'].tolist()}")
+    df['labels'] = df['labels'].tolist()
+    print(f"df[labels] after mapping: {np.array(df['labels'])}")
+
+
+    mapped_labels = np.array(df['labels'].tolist())
+
+
+
+    print(len(label_mapping))
+    #initialize
+    one_hot_encoder = OneHotEncoder(sparse=False)
+    one_hot_encoded_vectors = one_hot_encoder.fit_transform(mapped_labels.reshape(-1, 1)) #.reshape(len(label_mapping), 1))
+    print(f'one_hot_encoded_vectors: {one_hot_encoded_vectors}')
+    # Convert vectors to df
+    one_hot_encoded_df = pd.DataFrame(torch.tensor(one_hot_encoded_vectors), columns=one_hot_encoder.categories_[0])
+    one_hot_encoded_df = one_hot_encoded_df.to_numpy(dtype=np.float32)
+    print(f'one_hot_encoded_df:{one_hot_encoded_df}')
+    x = torch.tensor(one_hot_encoded_df)
+    #x = torch.from_numpy(x)
+    print("one_hot_encoded_df.values", x)
+
+
     label_encoder = LabelEncoder()
     new_labels_list = label_encoder.fit_transform(df['labels'].values)
+    print(f'df[labels]:{new_labels_list}')
     print(f'new_labels_list:{new_labels_list}')
     print(f'type(new_labels_list):{type(new_labels_list)}')
     print(df['node_id'].astype(int).values)
@@ -234,9 +294,10 @@ def data_for_GCN(df, df_nodes_relationship):
 
     features_data = {'nodes_list': new_nodes_list, 'new_labels_ist': new_labels_list}
     features_df = pd.DataFrame(features_data)
+    print(f'features_df:{features_df}')
 
-    x = features_df.to_numpy(dtype=np.float32)
-    x = torch.from_numpy(x)
+    #x = features_df.to_numpy(dtype=np.float32)
+    #x = torch.from_numpy(x)
 
     #print(f'features_df:{features_df}')
 
@@ -262,15 +323,23 @@ def data_for_GCN(df, df_nodes_relationship):
     # create data object  to do geometric gnn
     data = Data(x=x, edge_index=edge_index.t().contiguous(),)
                 #y=torch.tensor(new_labels_list, dtype=torch.long))
-    print(f'data:{data}')
+
     print(f'data.num_nodes:{data.num_nodes}')
     print(f'data.num_features:{data.num_features}')
     return data
 
 
 data = data_for_GCN(df0, df0_nodes_relationship)
+print(f'data:{data}')
+print(f'data.edge_index.shape: {data.edge_index.shape}')
+laplacian_transform = AddLaplacianEigenvectorPE(k=10,  is_undirected=True)
 
-print(data.edge_index.shape)
+# Apply the laplacian transform
+laplacian_encoded_graph_data = laplacian_transform(data)
+
+print(f'laplacian_encoded_graph_data: {laplacian_encoded_graph_data}')
+
+
 
 
 '''def create_adjacency_matrix(V, edges):
@@ -326,7 +395,8 @@ data, _, _ = transform(data)
 
 # parameters
 #out_channels = 2
-num_features = 2
+print()
+num_features = data.num_features
 epochs = 100
 print(f'data.num_features:{num_features}')
 
@@ -342,26 +412,37 @@ print(f'data.num_features:{num_features}')
 
 
 class VGCNEncoder(torch.nn.Module):
-    def __init__(self, in_channels, hidden=68):
+    def __init__(self, in_channels, hidden=24): #hidden=34 #hidden=68):
         super(VGCNEncoder, self).__init__()
         # use Graph Convolutional Network where we have 2 comvolutional NN
         self.conv1 = GCNConv(in_channels, 2 * hidden, cached=True) # here output channels is double of the channels for 2 convolutional NN
-        self.conv2_mu = GCNConv(2*hidden, hidden, cached=True)
-        self.conv2_logstd = GCNConv(2*hidden, hidden, cached=True)
+        self.conv2 = GCNConv(2* hidden, hidden, cached=True)
+        self.conv3 =  GCNConv(hidden, hidden, cached=True)
+        self.conv4 = GCNConv(hidden, hidden, cached=True)
+        self.conv2_mu = GCNConv(hidden, hidden, cached=True)
+        self.conv2_logstd = GCNConv(hidden, hidden, cached=True)
+
+        #self.conv2_mu = GCNConv(2*hidden, hidden, cached=True)
+        #self.conv2_logstd = GCNConv(2*hidden, hidden, cached=True)
 
     def forward(self, x, edge_index):
         x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        x = F.relu(self.conv3(x, edge_index))
+        x = F.relu(self.conv4(x, edge_index))
         mu = self.conv2_mu(x, edge_index)
         log_std = self.conv2_logstd(x, edge_index)
         return mu, log_std
 
 
+# runs/vgae_with_laplacian_pe k =10
+writer = SummaryWriter('runs/vgae_hidden=24_with_laplacian_pe_k=10') # Using tensorboard
 
 # Call VGAE and apply our encoder
 model = VGAE(VGCNEncoder(num_features).to(device), decoder=InnerProductDecoder() )
 model = model.to(device) # move model to gpu if available
 
-# Initialize the optimizer
+# Initialize the optim izer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 print(f'dir(model):{dir(model)}')
@@ -384,6 +465,7 @@ def train():
     '''
     model.train() # puts model in training mode
     optimizer.zero_grad()
+    print(f'data.x:{data.x}')
     z = model.encode(data.x, data.edge_index) #encodes the data
     print(f'z={z}')
 
@@ -398,6 +480,8 @@ def train():
     loss.backward()  # backprop
     optimizer.step()  # step on the optimizer
     print(f'----> float(loss): {float(loss)}')
+
+    writer.add_scalar('Loss/train', loss.item(), epoch)
     return float(loss) #z #float(loss)
 
 def evaluate(data):#, neg_edge):
@@ -411,6 +495,7 @@ def evaluate(data):#, neg_edge):
 
 
 
+
 epohchs = 100
 times = []
 for epoch in range(1, epochs + 1):
@@ -420,3 +505,6 @@ for epoch in range(1, epochs + 1):
     print(f'Epoch: {epoch} ==> AUC: {auc:.4f}, Avg. Precision: {avg_prec:.4f}')
     times.append(time.time() - start)
 print(f"Median time per epoch: {torch.tensor(times).median():.4f}s")'''
+
+
+writer.close()
