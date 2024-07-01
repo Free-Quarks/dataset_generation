@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import os, re, time
 import pandas as pd
@@ -61,14 +63,68 @@ else:
 
 def create_dataframe(csv_string):
     # Using Regex to make columns for node id, labels and properties
-    regex = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{(.*?)\}>"
-    match = re.match(regex, csv_string)
-    if match:
+    #regex = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{(.*?)\}>"
+    #  properties={'name': 'module',
+    print(csv_string)
+    regex = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'name\': \'(.*?)\'\,"
+
+    regex2 = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'index\': \'(.*?)\'\,"
+    regex3 = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'gromet(.*?)\,"
+    #regex = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'(?P<properties>.*)\'\}>"
+    match = re.search(regex, csv_string)
+    match2 = re.search(regex2, csv_string)
+    match3 = re.search(regex3, csv_string)
+    '''if match:
         node_id, labels, properties = match.groups()
-        #print(node_id, labels, properties)
+        # Assuming the properties are JSON-like, we can use json.loads to parse them
+        try:
+            properties_dict = json.loads(properties)
+        except json.JSONDecodeError:
+            properties_dict = {}
+
+        # Check if 'name' key exists in the parsed properties dictionary
+        name_value = properties_dict.get('name', 'noname')
+        print(f'properties:{name_value}')
+        return node_id, labels, name_value'''
+    if match:
+            node_id, labels, properties = match.groups()
+            #print(node_id)
+            #print(labels)
+            #print(node_id, labels, properties)
+            #properties = properties.strip() if properties else "noname"
+
+            #print(f'properties:{properties}')
+
+            print(node_id, labels, properties)
+            return node_id, labels, properties
+
+    elif match2:
+        node_id, labels, properties = match2.groups()
+        #print(node_id)
+        #print(labels)
+        # print(node_id, labels, properties)
+        # properties = properties.strip() if properties else "noname"
+        properties = "index"
+
+        # print(f'properties:{properties}')
+
+        print(node_id, labels, properties)
+        return node_id, labels, properties
+    elif match3:
+        node_id, labels, properties = match3.groups()
+        #print(node_id)
+        #print(labels)
+        # print(node_id, labels, properties)
+        # properties = properties.strip() if properties else "noname"
+        properties = "gromet-version"
+
+        # print(f'properties:{properties}')
+
+        print(node_id, labels, properties)
         return node_id, labels, properties
     else:
-        return None, None, None
+        #print(node_id, labels, properties)
+        return 'None', 'None', 'None'
 
 def node_relationship(csv_string):
     # Using Regex to obtain nodes relationshop
@@ -109,10 +165,11 @@ def new_dataframe(filename):
     node_id, labels, properties = zip(*df['c'].apply(create_dataframe))
     # print(f'node_id:',node_id)
     # obtain nodes relationship
+    print("======================================================================================")
 
     nodes_relationship = df['r'].apply(node_relationship)
     node_id_m, labels_m, properties_m = zip(*df['m'].apply(create_dataframe))
-
+    print("node_id_m, labels_m, properties_m", node_id_m, labels_m, properties_m)
     print(f'nodes_relationship:{nodes_relationship}')
 
     # print(f'nodes_relationship:',nodes_relationship)
@@ -128,6 +185,7 @@ def new_dataframe(filename):
     new_df_m.drop_duplicates(subset=['node_id'],inplace=True)
 
     new_df = pd.concat([new_df, new_df_m], ignore_index=True)
+    new_df = new_df.replace(to_replace='None', value=np.nan).dropna()
 
     print(f'len(new_df):{len(new_df)}')
     #test_node = new_df['node_id']
@@ -149,6 +207,7 @@ def new_dataframe(filename):
 
 
 def create_graph(df, df_nodes_relationship):
+    print(df)
     # Creating a graph
     G = nx.Graph()
 
@@ -158,10 +217,15 @@ def create_graph(df, df_nodes_relationship):
         labels = row['labels']
         properties = row['properties']
 
+        print(f'node_id={node_id}, labels={labels}, properties={properties}')
         # Combine labels and properties into a single dictionary
         attributes = {'labels': labels, 'properties': properties}
 
+        #if node_id is not None:
         G.add_node(node_id, label=labels) #, **properties )
+        #else:
+            #G.add_node(node_id, label=labels) #, **properties )
+
     for i, row in df_nodes_relationship.iterrows():
         start_node_id = row['start_node_id']
         end_node_id = row['end_node_id']
@@ -305,10 +369,12 @@ def data_for_GCN(df, df_nodes_relationship):
     target_nodes = df_nodes_relationship['end_node_id'].values.tolist()
 
     print(f'source_nodes:{source_nodes}')
+    print(f'nodes_list:{nodes_list}')
 
     new_source_nodes = [nodes_list.index(start) for start in source_nodes]
     print(f'new_source_nodes:{new_source_nodes}')
-    new_target_nodes = [nodes_list.index(start) for start in target_nodes]
+    print(f'target_nodes:{target_nodes}')
+    new_target_nodes = [nodes_list.index(targ) for targ in target_nodes]
     print(f'new_target_nodes:{new_target_nodes}')
 
     edge_index = torch.tensor([source_nodes, target_nodes], dtype=torch.long).t()# to slow
