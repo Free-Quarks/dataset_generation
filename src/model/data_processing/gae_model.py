@@ -1,0 +1,129 @@
+import json
+
+import numpy as np
+import os, re, time
+import pandas as pd
+import torch
+from torch_geometric.data import Data
+import torch_geometric.transforms as T
+from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.transforms import RandomLinkSplit
+from torch_geometric.utils import to_dense_adj
+from torch_geometric.nn import GCNConv, GAE, InnerProductDecoder, VGAE
+from typing import Optional, Tuple
+
+import torch
+from torch import Tensor
+from torch.nn import Module
+
+from torch_geometric.nn.inits import reset
+from torch_geometric.utils import negative_sampling
+
+
+from torch_geometric.transforms import AddLaplacianEigenvectorPE
+from torch_geometric.utils import train_test_split_edges
+import torch.nn.functional as F
+import networkx as nx
+from torch_geometric.utils import from_networkx
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import matplotlib.pyplot as plt
+from networkx.drawing.nx_pydot import graphviz_layout
+from node2vec import Node2Vec
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+# Directory with graphs data with csv files
+
+from sklearn.preprocessing import OneHotEncoder
+
+######### GAE from https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/models/autoencoder.html#GAE
+class GAEncoder(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = GCNConv(in_channels, hidden_channels)
+        self.conv2 = GCNConv(hidden_channels, out_channels)
+    def forward(self, x, edge_index, pe):
+        x = x+pe
+        x = self.conv1(x, edge_index).relu()
+        x = torch.relu(x)
+        x = self.conv2(x, edge_index)
+        return x
+
+class GADecoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, z):
+        adj = torch.matmul(z, z.t())
+        sigmoid = True
+        return torch.sigmoid(adj) if sigmoid else adj
+
+
+class GraphAutoEncoder(torch.nn.Module):
+    def __init__(self, encoder: Module, decoder: Optional[Module] = None):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder #InnerProductDecoder() if decoder is None else decoder
+        GraphAutoEncoder.reset_parameters(self)
+    def reset_parameters(self):
+        r"""Resets all learnable parameters of the module."""
+        reset(self.encoder)
+        reset(self.decoder)
+
+    def forward(self, *args, **kwargs) -> Tensor:  # pragma: no cover
+        r"""Alias for :meth:`encode`."""
+        return self.encoder(*args, **kwargs)
+    def encode(self, *args, **kwargs) -> Tensor:
+        r"""Runs the encoder and computes node-wise latent variables."""
+        return self.encoder(*args, **kwargs)
+
+    def decode(self, *args, **kwargs) -> Tensor:
+        r"""Runs the decoder and computes edge probabilities."""
+        return self.decoder(*args, **kwargs)
+
+    def recon_loss(self, z: Tensor, pos_edge_index: Tensor, neg_edge_index: Optional[Tensor] = None) -> Tensor:
+        r"""Given latent variables :obj:`z`, computes the binary cross
+        entropy loss for positive edges :obj:`pos_edge_index` and negative
+        sampled edges.
+
+        Args:
+            z (torch.Tensor): The latent space :math:`\mathbf{Z}`.
+            pos_edge_index (torch.Tensor): The positive edges to train against.
+            neg_edge_index (torch.Tensor, optional): The negative edges to
+                train against. If not given, uses negative sampling to
+                calculate negative edges. (default: :obj:`None`)
+        """
+        EPS = 1e-15
+        pos_loss = -torch.log(
+            self.decoder(z, pos_edge_index, sigmoid=True) + EPS).mean()
+
+        if neg_edge_index is None:
+            neg_edge_index = negative_sampling(pos_edge_index, z.size(0))
+        neg_loss = -torch.log(1 -
+                              self.decoder(z, neg_edge_index, sigmoid=True) +
+                              EPS).mean()
+
+        return pos_loss + neg_loss
+    def test(self, z: Tensor, pos_edge_index: Tensor, neg_edge_index: Tensor) -> Tuple[Tensor, Tensor]:
+        r"""Given latent variables :obj:`z`, positive edges
+        :obj:`pos_edge_index` and negative edges :obj:`neg_edge_index`,
+        computes area under the ROC curve (AUC) and average precision (AP)
+        scores.
+
+        Args:
+            z (torch.Tensor): The latent space :math:`\mathbf{Z}`.
+            pos_edge_index (torch.Tensor): The positive edges to evaluate
+                against.
+            neg_edge_index (torch.Tensor): The negative edges to evaluate
+                against.
+        """
+        from sklearn.metrics import average_precision_score, roc_auc_score
+
+        pos_y = z.new_ones(pos_edge_index.size(1))
+        neg_y = z.new_zeros(neg_edge_index.size(1))
+        y = torch.cat([pos_y, neg_y], dim=0)
+
+        pos_pred = self.decoder(z, pos_edge_index, sigmoid=True)
+        neg_pred = self.decoder(z, neg_edge_index, sigmoid=True)
+        pred = torch.cat([pos_pred, neg_pred], dim=0)
+
+        y, pred = y.detach().cpu().numpy(), pred.detach().cpu().numpy()
+
+        return roc_auc_score(y, pred), average_precision_score(y, pred)

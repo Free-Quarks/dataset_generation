@@ -52,8 +52,8 @@ filename2 = os.path.join(DIRECTORY_TO_CSV_FILES, "output-code-2-graph.csv")
 
 if torch.cuda.is_available():
     device = torch.device('cuda')
-elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-    device = torch.device('mps')
+#elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+#    device = torch.device('mps')
 else:
     device = torch.device('cpu')
 
@@ -398,7 +398,7 @@ def data_for_GCN(df, df_nodes_relationship):
 data = data_for_GCN(df0, df0_nodes_relationship)
 print(f'data:{data}')
 print(f'data.edge_index.shape: {data.edge_index.shape}')
-laplacian_transform = AddLaplacianEigenvectorPE(k=10,  is_undirected=True)
+laplacian_transform = AddLaplacianEigenvectorPE(k=7,  is_undirected=True)
 
 # Apply the laplacian transform
 laplacian_encoded_graph_data = laplacian_transform(data)
@@ -491,7 +491,8 @@ class VGCNEncoder(torch.nn.Module):
         #self.conv2_mu = GCNConv(2*hidden, hidden, cached=True)
         #self.conv2_logstd = GCNConv(2*hidden, hidden, cached=True)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, laplacian_eigenvector_pe):
+        x = x + laplacian_eigenvector_pe
         x = F.relu(self.conv1(x, edge_index))
         x = F.relu(self.conv2(x, edge_index))
         x = F.relu(self.conv3(x, edge_index))
@@ -532,10 +533,10 @@ def train():
     model.train() # puts model in training mode
     optimizer.zero_grad()
     print(f'data.x:{data.x}')
-    z = model.encode(data.x, data.edge_index) #encodes the data
+    z = model.encode(laplacian_encoded_graph_data.x, laplacian_encoded_graph_data.edge_index, laplacian_encoded_graph_data.laplacian_eigenvector_pe) #encodes the data
     print(f'z={z}')
 
-    reconstructed = model.decode(z, data.edge_index)
+    reconstructed = model.decode(z, laplacian_encoded_graph_data.edge_index)
     print(f'reconstructed={reconstructed}')
     loss = model.recon_loss(z, data.pos_edge_label_index)  # compute the reconstructed loss
     print(f'loss={loss}')
