@@ -23,27 +23,6 @@ from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 
 from sklearn.preprocessing import OneHotEncoder
 
-# Assuming your labels are stored in a list named 'labels'
-labels = ['x', 'y', 'z']
-
-# Convert labels to integers
-integer_labels = {label: i for i, label in enumerate(labels)}
-
-# Create a 2D array of shape (n_samples, 1) filled with integer labels
-encoded_labels = [[integer_labels[label]] for label in labels]
-
-# Initialize the OneHotEncoder
-enc = OneHotEncoder(sparse=False)
-
-# Fit and transform the encoded labels
-onehot_encoded = enc.fit_transform(encoded_labels)
-
-# Convert the result to a DataFrame for easy viewing
-import pandas as pd
-onehot_encoded_df = pd.DataFrame(onehot_encoded, columns=enc.get_feature_names_out())
-
-print(onehot_encoded_df)
-
 
 DIRECTORY_TO_CSV_FILES = '../../../data/output_csv_graphs'
 
@@ -57,9 +36,7 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-#df = pd.DataFrame(df)
 
-#print(df['c'].head())
 
 def create_dataframe(csv_string):
     # Using Regex to make columns for node id, labels and properties
@@ -70,55 +47,29 @@ def create_dataframe(csv_string):
 
     regex2 = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'index\': \'(.*?)\'\,"
     regex3 = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'gromet(.*?)\,"
-    #regex = r"<Node id=(\d+) labels=\{\'(.*?)\'\} properties=\{\'(?P<properties>.*)\'\}>"
+
     match = re.search(regex, csv_string)
     match2 = re.search(regex2, csv_string)
     match3 = re.search(regex3, csv_string)
-    '''if match:
-        node_id, labels, properties = match.groups()
-        # Assuming the properties are JSON-like, we can use json.loads to parse them
-        try:
-            properties_dict = json.loads(properties)
-        except json.JSONDecodeError:
-            properties_dict = {}
 
-        # Check if 'name' key exists in the parsed properties dictionary
-        name_value = properties_dict.get('name', 'noname')
-        print(f'properties:{name_value}')
-        return node_id, labels, name_value'''
     if match:
             node_id, labels, properties = match.groups()
-            #print(node_id)
-            #print(labels)
-            #print(node_id, labels, properties)
-            #properties = properties.strip() if properties else "noname"
-
-            #print(f'properties:{properties}')
 
             print(node_id, labels, properties)
             return node_id, labels, properties
 
     elif match2:
         node_id, labels, properties = match2.groups()
-        #print(node_id)
-        #print(labels)
-        # print(node_id, labels, properties)
-        # properties = properties.strip() if properties else "noname"
+
         properties = "index"
 
-        # print(f'properties:{properties}')
 
         print(node_id, labels, properties)
         return node_id, labels, properties
     elif match3:
         node_id, labels, properties = match3.groups()
-        #print(node_id)
-        #print(labels)
-        # print(node_id, labels, properties)
-        # properties = properties.strip() if properties else "noname"
-        properties = "gromet-version"
 
-        # print(f'properties:{properties}')
+        properties = "gromet-version"
 
         print(node_id, labels, properties)
         return node_id, labels, properties
@@ -136,27 +87,6 @@ def node_relationship(csv_string):
         return nodes
     else:
         return None
-
-
-#print(df['c'][0])
-# To create a new dataframe, apply the `create_dataframe` function to each row
-'''node_id, labels, properties = zip(*df['c'].apply(create_dataframe))
-#print(f'node_id:',node_id)
-# obtain nodes relationship
-nodes_relationship = df['r'].apply(node_relationship)
-
-#print(f'nodes_relationship:',nodes_relationship)
-# create a new dataframe
-new_df = pd.DataFrame({'node_id': node_id, 'labels': labels, 'properties': properties, 'nodes_relationship': nodes_relationship})
-
-new_df[['start_node_id', 'end_node_id']] = new_df['nodes_relationship'].str.extract('(\d+), (\d+)')
-
-# Convert the string ids to int
-new_df['start_node_id'] = new_df['start_node_id'].astype(int)
-new_df['end_node_id'] = new_df['end_node_id'].astype(int)
-
-print(new_df.head())
-print(new_df['nodes_relationship'])'''
 
 def new_dataframe(filename):
     df = pd.read_csv(filename)
