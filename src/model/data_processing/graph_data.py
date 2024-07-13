@@ -64,14 +64,16 @@ def node_relationship(row):
 
     Returns nodes
     '''
-
-    pattern = r"<Relationship id=(\d+) start_node_id=(\d+) end_node_id=(\d+) nodes=\((.*?)\)"
+    # "<Relationship id=12321 start_node_id=7834 end_node_id=7928 nodes=(7834, 7928) type=Contains properties={}>"
+    pattern = r"<Relationship id=(\d+) start_node_id=(\d+) end_node_id=(\d+) nodes=\((.*?)\) type=(.*?) "
     match = re.match(pattern, row)
     if match:
-        relationship_id, start_node_id, end_node_id, nodes = match.groups()
-        return nodes
+        relationship_id, start_node_id, end_node_id, nodes, edge_type = match.groups()
+        print(nodes)
+        print(f'edge_type:{edge_type}')
+        return nodes, edge_type
     else:
-        return None
+        return 'None', 'None'
 
 def new_dataframe(filename):
     df = pd.read_csv(filename)
@@ -82,10 +84,11 @@ def new_dataframe(filename):
     # obtain nodes relationship
     print("======================================================================================")
 
-    nodes_relationship = df['r'].apply(node_relationship)
+    nodes_relationship, edge_type = zip(*df['r'].apply(node_relationship))
     node_id_m, labels_m, properties_m = zip(*df['m'].apply(create_dataframe))
     print("node_id_m, labels_m, properties_m", node_id_m, labels_m, properties_m)
     print(f'nodes_relationship:{nodes_relationship}')
+    print(f'edge_type:{edge_type}')
 
     # print(f'nodes_relationship:',nodes_relationship)
     # create a new dataframe
@@ -106,7 +109,7 @@ def new_dataframe(filename):
     #test_node = new_df['node_id']
     print(f'df.node_id.nunique():{new_df.node_id.nunique()}')
 
-    df_nodes_relationship = pd.DataFrame({'nodes_relationship': nodes_relationship})
+    df_nodes_relationship = pd.DataFrame({'nodes_relationship': nodes_relationship, 'edge_type': edge_type})
 
     df_nodes_relationship[['start_node_id', 'end_node_id']] = df_nodes_relationship['nodes_relationship'].str.extract('(\d+), (\d+)')
     # Convert the string ids to int
@@ -115,8 +118,12 @@ def new_dataframe(filename):
 
 
 
+    #df_nodes_relationship['edge_type'] = df_nodes_relationship['edge_type']
+
+
+
     print(new_df)
-    print(df_nodes_relationship)
+    print("df_nodes_relationship", df_nodes_relationship)
 
     return new_df, df_nodes_relationship
 
@@ -183,8 +190,22 @@ def data_for_GCN(df, df_nodes_relationship):
     print(f'encoded_vectors:{encoded_vectors}')
     print(f'torch.tensor(encoded_vectors).shape:{torch.tensor(encoded_vectors).shape}')
 
+    edge_type_mapping = {'Metadata': 1, 'Port_Of': 2, 'Contains': 3, 'Wire': 4, 'Pre': 5, 'Condition': 5, 'Body': 6}
+    df_nodes_relationship['edge_type'] = df_nodes_relationship['edge_type'].map(edge_type_mapping)
 
-    print(f"df[labels].to;ist() after mapping: {df['labels'].tolist()}")
+    df_nodes_relationship['edge_type'] = df_nodes_relationship['edge_type'].tolist()
+
+    mapped_edge_type = np.array(df_nodes_relationship['edge_type'].tolist())
+
+    print(f'mapped_edge_type:{mapped_edge_type}')
+
+    encoded_edge_type_vectors = []
+    for type in mapped_edge_type:
+        vector = np.zeros(len(edge_type_mapping), dtype=int)
+        vector[type - 1] = 1
+        encoded_edge_type_vectors.append(vector)
+
+    print(f'encoded_edge_type_vectors:{encoded_edge_type_vectors}')
 
 
 
@@ -199,7 +220,14 @@ def data_for_GCN(df, df_nodes_relationship):
     one_hot_encoded_df = pd.DataFrame(torch.tensor(encoded_vectors), columns=encoded_vectors)
     one_hot_encoded_df = one_hot_encoded_df.to_numpy(dtype=np.float32)
     print(f'one_hot_encoded_df:{one_hot_encoded_df}')
+
+    # Convert vectors to df
+    one_hot_encoded_edge_attr_df = pd.DataFrame(torch.tensor(encoded_edge_type_vectors), columns=encoded_edge_type_vectors)
+    one_hot_encoded_edge_attr_df = one_hot_encoded_edge_attr_df.to_numpy(dtype=np.float32)
+    print(f'one_hot_encoded_edge_attr_df:{one_hot_encoded_edge_attr_df}')
+
     x = torch.tensor(one_hot_encoded_df)
+    edge_features = torch.tensor(one_hot_encoded_edge_attr_df)
     #x = torch.from_numpy(x)
     print("one_hot_encoded_df.values", x)
 
@@ -208,7 +236,6 @@ def data_for_GCN(df, df_nodes_relationship):
     new_labels_list = label_encoder.fit_transform(df['labels'].values)
     print(f'df[labels]:{new_labels_list}')
     print(f'new_labels_list:{new_labels_list}')
-    print(f'type(new_labels_list):{type(new_labels_list)}')
     print("df.head()", df.head())
     #print(df['node_id'].astype(int).values)
 
@@ -251,7 +278,7 @@ def data_for_GCN(df, df_nodes_relationship):
     # Convert numpy array to a torch tensor
     #edge_index = torch.tensor(combined_array)
     # create data object  to do geometric gnn
-    data = Data(x=x, edge_index=edge_index.t().contiguous(),)
+    data = Data(x=x, edge_index=edge_index.t().contiguous(), edge_features=edge_features)
                 #y=torch.tensor(new_labels_list, dtype=torch.long))
 
     print(f'data.num_nodes:{data.num_nodes}')

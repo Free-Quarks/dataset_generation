@@ -28,7 +28,8 @@ from gae_model import GraphAutoEncoder, GAEncoder, GADecoder
 
 
 DIRECTORY_TO_CSV_FILES = '../../../data/output_csv_graphs/'
-
+np.random.seed(5)
+torch.manual_seed(12345)
 
 if torch.cuda.is_available():
     device = torch.device('cuda')
@@ -54,6 +55,7 @@ def evaluate(data):#, neg_edge):
 #writer.close()
 
 if __name__ == "__main__":
+
     filenames = glob.glob(DIRECTORY_TO_CSV_FILES + '*.csv')
     graph_dataset = graph_datasets(filenames)
     print(f'graph_dataset: {graph_dataset}')
