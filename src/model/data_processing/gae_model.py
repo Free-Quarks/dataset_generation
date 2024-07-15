@@ -1,69 +1,76 @@
-import json
-
 import numpy as np
-import os, re, time
-import pandas as pd
 import torch
-from torch_geometric.data import Data
-import torch_geometric.transforms as T
-from torch.utils.tensorboard import SummaryWriter
-from torch_geometric.transforms import RandomLinkSplit
-from torch_geometric.utils import to_dense_adj
 from torch_geometric.nn import GCNConv, GAE, InnerProductDecoder, VGAE
 from typing import Optional, Tuple
 
-import torch
+
 from torch import Tensor
 from torch.nn import Module
 
 from torch_geometric.nn.inits import reset
 from torch_geometric.utils import negative_sampling
-
-
-from torch_geometric.transforms import AddLaplacianEigenvectorPE
-from torch_geometric.utils import train_test_split_edges
 import torch.nn.functional as F
-import networkx as nx
-from torch_geometric.utils import from_networkx
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-import matplotlib.pyplot as plt
-from networkx.drawing.nx_pydot import graphviz_layout
-from node2vec import Node2Vec
-from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+
 # Directory with graphs data with csv files
 
 from sklearn.preprocessing import OneHotEncoder
 
 ######### GAE from https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/models/autoencoder.html#GAE
 class GAEncoder(torch.nn.Module):
+    """
+    Encoder part of the Auto Encoder
+    """
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, out_channels)
     def forward(self, x, edge_index, pe):
         x = x+pe
-        x = self.conv1(x, edge_index).relu()
-        x = torch.relu(x)
+        #x = pe
+        x = F.relu(self.conv1(x, edge_index))
         x = self.conv2(x, edge_index)
         return x
 
 class GADecoder(torch.nn.Module):
+    """
+    Decoder for Auto Encoder the  that takes teh inner product of the latent space matrix, z
+    https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.nn.models.InnerProductDecoder.html#torch_geometric.nn.models.InnerProductDecoder
+    """
     def __init__(self):
         super().__init__()
-    def forward(self, z):
-        adj = torch.matmul(z, z.t())
-        sigmoid = True
-        return torch.sigmoid(adj) if sigmoid else adj
+    def forward(self, z, edge_index, sigmoid: bool = True):
+        """
+        Forward pass of the decoder which transforms the latent space representation to edge probabilities
+        Args:
+            z:
+            edge_index:
+            sigmoid:
+
+        Returns: Probabilities if sigmoid is applied providing edge probabilities or else returns values for
+
+        """
+
+        # Inner product between pairs of nodes that is obtained from edge_index
+        # which multiplies the node embeddings connected via edges
+        # and then sums the products  along the nodes (via dimension=1)
+        value = (z[edge_index[0]]*z[edge_index[1]]).sum(dim=1)
+        return torch.sigmoid(value) if sigmoid else value
 
 
 class GraphAutoEncoder(torch.nn.Module):
+    """
+    Graph Auto Encoder
+    https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.nn.models.GAE.html#torch_geometric.nn.models.GAE
+    """
     def __init__(self, encoder: Module, decoder: Optional[Module] = None):
         super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder #InnerProductDecoder() if decoder is None else decoder
+        self.encoder = encoder # Encoder module
+        self.decoder = decoder # Optional decoder module #InnerProductDecoder() if decoder is None else decoder
         GraphAutoEncoder.reset_parameters(self)
     def reset_parameters(self):
-        r"""Resets all learnable parameters of the module."""
+        """
+        Resets all learnable parameters of the encoder and decoder module.
+        """
         reset(self.encoder)
         reset(self.decoder)
 

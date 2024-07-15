@@ -55,6 +55,8 @@ def evaluate(data):#, neg_edge):
 #writer.close()
 
 if __name__ == "__main__":
+    np.random.seed(5)
+    torch.manual_seed(12345)
 
     filenames = glob.glob(DIRECTORY_TO_CSV_FILES + '*.csv')
     graph_dataset = graph_datasets(filenames)
@@ -103,7 +105,7 @@ if __name__ == "__main__":
     # runs/vgae_with_laplacian_pe k =10
     # writer = SummaryWriter('runs/vgae_hidden=24_with_laplacian_pe_k=10') # Using tensorboard
 
-    model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), InnerProductDecoder())
+    model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), GADecoder())#InnerProductDecoder())
     #model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), GADecoder())
     model = model.to(device)  # move model to gpu if available
 
