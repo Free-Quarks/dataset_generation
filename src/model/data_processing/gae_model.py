@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from torch_geometric.nn import GCNConv, GAE, InnerProductDecoder, VGAE
+from torch_geometric.nn import GCNConv, SAGPooling,  GATv2Conv, GAE, InnerProductDecoder, VGAE
 from typing import Optional, Tuple
 
 
 from torch import Tensor
 from torch.nn import Module
-
+from torch_geometric.nn import global_mean_pool
 from torch_geometric.nn.inits import reset
 from torch_geometric.utils import negative_sampling
 import torch.nn.functional as F
@@ -20,15 +20,37 @@ class GAEncoder(torch.nn.Module):
     """
     Encoder part of the Auto Encoder
     """
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, in_channels, hidden_channels, out_channels): #, heads=1):
         super().__init__()
+        # GATConv has a self sttention
+        #self.conv1 = GATv2Conv(in_channels, hidden_channels, heads=heads)
         self.conv1 = GCNConv(in_channels, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, out_channels)
-    def forward(self, x, edge_index, pe):
+        self.conv3 = GCNConv(out_channels, out_channels)
+
+        self.pool = SAGPooling(hidden_channels, ratio=0.5)
+    def forward(self, x, edge_index, edge_attr ,pe):
+        print(f'x.shape= {x.shape}')
+        print(f'pe.shape= {pe.shape}')
         x = x+pe
         #x = pe
-        x = F.relu(self.conv1(x, edge_index))
-        x = self.conv2(x, edge_index)
+        print(f'x.shape= {x.shape}')
+        print(f'edge_index.shape= {edge_index.shape}')
+        x = F.relu(self.conv1(x, edge_index)) #.mean(dim=1)
+        print(f'x.shape= {x.shape}')
+        print(f'edge_index.shape= {edge_index.shape}')
+        x, edge_index,edge_attr, _, _, _ = self.pool(x, edge_index, edge_attr)
+        print(f'x.shape= {x.shape}')
+        print(f'edge_index.shape= {edge_index.shape}')
+
+        x = F.relu(self.conv2(x, edge_index))
+        print(f'x.shape= {x.shape}')
+        x = self.conv3(x, edge_index)
+        print(f'x= {x}')
+        print(f'x.shape= {x.shape}')
+
+        x = global_mean_pool(x, batch=None)
+        print(f'x.shape= {x.shape}')
         return x
 
 class GADecoder(torch.nn.Module):

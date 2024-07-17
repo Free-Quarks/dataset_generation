@@ -87,8 +87,8 @@ def new_dataframe(filename):
     nodes_relationship, edge_type = zip(*df['r'].apply(node_relationship))
     node_id_m, labels_m, properties_m = zip(*df['m'].apply(create_dataframe))
     print("node_id_m, labels_m, properties_m", node_id_m, labels_m, properties_m)
-    print(f'nodes_relationship:{nodes_relationship}')
-    print(f'edge_type:{edge_type}')
+    #print(f'nodes_relationship:{nodes_relationship}')
+    #print(f'edge_type:{edge_type}')
 
     # print(f'nodes_relationship:',nodes_relationship)
     # create a new dataframe
@@ -96,7 +96,7 @@ def new_dataframe(filename):
         {'node_id': node_id, 'labels': labels, 'properties': properties})
     #drop duplicates
     new_df.drop_duplicates(subset=['node_id'], inplace=True)
-
+    print(f'new_df: {new_df}')
 
     new_df_m = pd.DataFrame(
         {'node_id': node_id_m, 'labels': labels_m, 'properties': properties_m})
@@ -122,7 +122,7 @@ def new_dataframe(filename):
 
 
 
-    print(new_df)
+    print(f'new_df= {new_df}')
     print("df_nodes_relationship", df_nodes_relationship)
 
     return new_df, df_nodes_relationship
@@ -278,7 +278,7 @@ def data_for_GCN(df, df_nodes_relationship):
     # Convert numpy array to a torch tensor
     #edge_index = torch.tensor(combined_array)
     # create data object  to do geometric gnn
-    data = Data(x=x, edge_index=edge_index.t().contiguous(), edge_features=edge_features)
+    data = Data(x=x, edge_index=edge_index.t().contiguous(), edge_attr=edge_features)
                 #y=torch.tensor(new_labels_list, dtype=torch.long))
 
     print(f'data.num_nodes:{data.num_nodes}')
