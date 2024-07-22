@@ -100,13 +100,14 @@ if __name__ == "__main__":
     #print()
     num_features = data.num_features
 
+
     epochs = 100
     print(f'data.num_features:{num_features}')
 
     # runs/vgae_with_laplacian_pe k =10
     # writer = SummaryWriter('runs/vgae_hidden=24_with_laplacian_pe_k=10') # Using tensorboard
 
-    model = GraphAutoEncoder(GAEncoder(num_features, 40, 38), GADecoder())#InnerProductDecoder())
+    model = GraphAutoEncoder(GAEncoder(num_features, 40, 38), GADecoder(38, 40, 38))#InnerProductDecoder())
     #model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), GADecoder())
     model = model.to(device)  # move model to gpu if available
 
@@ -127,6 +128,8 @@ if __name__ == "__main__":
     print(f'data.edge_attrs:{data.edge_attr}')
 
     epochs = 100
+
+    loss_func = torch.nn.MSELoss()
     times = []
     for epoch in range(epochs):
         start = time.time()
@@ -146,16 +149,18 @@ if __name__ == "__main__":
 
             model.train()
             optimizer.zero_grad()
+            num_nodes = pe_data.x.shape[0]
+            print(f'num_nodes:{num_nodes}')
             z = model.encode(pe_data.x.to(device), pe_data.edge_index.to(device), pe_data.edge_attr , pe_data.laplacian_eigenvector_pe.to(device))  # encodes the data
             print(f'z={z}')
-            reconstructed = model.decode(z.to(device), pe_data.edge_index.to(device))
-            print(f'reconstructed={reconstructed}')
+            #reconstructed = model.decode(z.to(device), num_nodes, pe_data.edge_index.to(device))
+            reconstructed = model.decode(z.to(device), num_nodes, pe_data.edge_index.to(device), pe_data.laplacian_eigenvector_pe.to(device))
             print(f'reconstructed={reconstructed}')
             print(f'graph_dataset[i]:{graph_dataset[i]}')
             print(f'pe_data:{pe_data}')
             #gdata = graph_dataset[i]
             print(f'graph_dataset[i].pos_edge_label_index:{gdata.pos_edge_label_index}')
-            loss = model.recon_loss(z.to(device), gdata.pos_edge_label_index.to(device))
+            loss = loss_func(pe_data.x.to(device).to(device), reconstructed.to(device))
             print(f'loss={loss}')
             loss.backward()  # backprop
             optimizer.step()  # step on the optimizer

@@ -53,14 +53,70 @@ class GAEncoder(torch.nn.Module):
         print(f'x.shape= {x.shape}')
         return x
 
+
 class GADecoder(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels):
+        super().__init__()
+        self.decoder_conv1 = GCNConv(out_channels, hidden_channels)
+        self.decoder_conv2 = GCNConv(hidden_channels, 13)
+        self.decoder_conv3 = GCNConv(13, 13)
+        self.linear1 = torch.nn.Linear(out_channels, 13)
+        self.linear2 = torch.nn.Linear(13, 13)
+
+    def forward(self, z, num_nodes, edge_index, pe):
+        #x_unpooled = torch.zeros((num_nodes, z.size(1)), device=z.device)
+
+        # Assign pooled features to each node
+        #for i in range(num_nodes):
+        #    start_idx = i * 13 # 13 is the number of features per node
+        #    end_idx = start_idx + 13
+        #    x_unpooled[i, :] = z[start_idx:end_idx].mean(dim=0)
+
+        #print(f'x_unpooled.shape = {x_unpooled.shape}') ---> this gave nans
+
+        print(f'z.shape:{z.shape}')
+        z = torch.tile(z, (num_nodes, 1))
+
+        print(f'z.shape:{z.shape}')
+
+        print(f'pe.shape:{pe.shape}')
+
+
+        z1 = self.decoder_conv1(z, edge_index)
+
+        z1 = F.relu(z1)
+        print(f'z1.shape:{z1.shape}')
+
+        z1 = self.decoder_conv2(z1, edge_index)
+
+        z1 = F.relu(z1)
+        print(f'z1.shape:{z1.shape}')
+        print(f'----> z1:{z1}')
+
+        z1 = self.decoder_conv3(z1+pe, edge_index)
+        z1 = F.relu(z1)
+        print(f'z1.shape:{z1.shape}')
+        print(f'----> z1:{z1}')
+
+        print()
+        return z1
+
+
+
+
+
+
+
+
+
+'''class GADecoder(torch.nn.Module):
     """
     Decoder for Auto Encoder the  that takes teh inner product of the latent space matrix, z
     https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.nn.models.InnerProductDecoder.html#torch_geometric.nn.models.InnerProductDecoder
     """
     def __init__(self):
         super().__init__()
-    def forward(self, z, edge_index, sigmoid: bool = True):
+    def forward(self, z, num_nodes, edge_index, sigmoid: bool = True):
         """
         Forward pass of the decoder which transforms the latent space representation to edge probabilities
         Args:
@@ -75,8 +131,37 @@ class GADecoder(torch.nn.Module):
         # Inner product between pairs of nodes that is obtained from edge_index
         # which multiplies the node embeddings connected via edges
         # and then sums the products  along the nodes (via dimension=1)
-        value = (z[edge_index[0]]*z[edge_index[1]]).sum(dim=1)
-        return torch.sigmoid(value) if sigmoid else value
+        #value = (z[edge_index[0]]*z[edge_index[1]]).sum(dim=1)
+
+        print(f'z.size(0) = {z.size(0)}')
+        print(f'z.size(1) = {z.size(1)}')
+        features_per_node = z.size(0) // num_nodes
+        print(f'features_per_node = {features_per_node}')
+
+        # First Initialize the tensor with zeros
+        x_unpooled = torch.zeros((num_nodes, z.size(1)), device=z.device)
+
+        # Assign pooled features to each node
+        for i in range(num_nodes):
+            start_idx = i * 13 // 13 is the number of features per node
+            end_idx = start_idx + features_per_node
+            x_unpooled[i, :] = z[start_idx:end_idx].mean(dim=0)
+
+        print(f'x_unpooled.shape = {x_unpooled.shape}')
+
+        print(f'x_unpooled = {x_unpooled}')
+
+
+        projection_layer = torch.nn.Linear(z.shape[1], num_nodes)
+
+        projected_z = projection_layer(z.unsqueeze(0))
+        print(f'projected_z= {projected_z}')
+        print(f'projected_z.shape= {projected_z.shape}')
+        reconstructed_features = projected_z.squeeze().view(num_nodes, -1)
+        print(f'reconstructed_features= {reconstructed_features}')
+        print(f'reconstructed_features.shape= {reconstructed_features.shape}')
+
+        return reconstructed_features #torch.sigmoid(value) if sigmoid else value'''
 
 
 class GraphAutoEncoder(torch.nn.Module):
