@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # runs/vgae_with_laplacian_pe k =10
     # writer = SummaryWriter('runs/vgae_hidden=24_with_laplacian_pe_k=10') # Using tensorboard
 
-    model = GraphAutoEncoder(GAEncoder(256, num_features, 40, 38), GADecoder(38, 40, 38))#InnerProductDecoder())
+    model = GraphAutoEncoder(GAEncoder(256, 7, num_features, 40, 38), GADecoder(7,38, 40, 38))#InnerProductDecoder())
     #model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), GADecoder())
     model = model.to(device)  # move model to gpu if available
 
@@ -159,7 +159,7 @@ if __name__ == "__main__":
             z = model.encode(pe_data.x.to(device), pe_data.x2.to(device), pe_data.edge_index.to(device), pe_data.edge_attr , pe_data.laplacian_eigenvector_pe.to(device))  # encodes the data
             print(f'z={z}')
             #reconstructed = model.decode(z.to(device), num_nodes, pe_data.edge_index.to(device))
-            reconstructed = model.decode(z.to(device), num_nodes, pe_data.edge_index.to(device), pe_data.laplacian_eigenvector_pe.to(device))
+            reconstructed = model.decode(z.to(device), num_nodes, pe_data.edge_index.to(device), pe_data.edge_attr.to(device), pe_data.laplacian_eigenvector_pe.to(device))
             print(f'reconstructed={reconstructed}')
             print(f'graph_dataset[i]:{graph_dataset[i]}')
             print(f'pe_data:{pe_data}')

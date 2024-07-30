@@ -50,19 +50,26 @@ class GAEncoder(torch.nn.Module):
     """
     Encoder part of the Auto Encoder
     """
-    def __init__(self, properties_dim, in_channels, hidden_channels, out_channels): #, heads=1):
+    def __init__(self, properties_dim, edge_dim, in_channels, hidden_channels, out_channels): #, heads=1):
         super().__init__()
         # GATConv has a self sttention
         #self.conv1 = GATv2Conv(in_channels, hidden_channels, heads=heads)
         #self.graph_lin = GraphLinearLayer(properties_dim, in_channels)
 
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, out_channels)
-        self.conv3 = GCNConv(out_channels, out_channels)
+        #self.conv1 = GCNConv(in_channels, hidden_channels)
+        #self.conv2 = GCNConv(hidden_channels, out_channels)
+        #self.conv3 = GCNConv(out_channels, out_channels)
 
-        self.conv = GCNConv(properties_dim, hidden_channels)
+        self.conv1 = GATv2Conv(in_channels, hidden_channels, edge_dim=edge_dim)
+        self.conv2 = GATv2Conv(hidden_channels, hidden_channels, edge_dim=edge_dim)
+        self.conv3 = GCNConv(hidden_channels, hidden_channels)
 
-        self.pool = SAGPooling(hidden_channels, ratio=0.5)
+        #self.conv = GCNConv(properties_dim, hidden_channels)
+        self.conv = GATv2Conv(properties_dim, hidden_channels, edge_dim=edge_dim)
+
+        self.pool = SAGPooling(hidden_channels, ratio=0.5) # Self-Attention Graph Pooling where choosing ratio=0.5 means half of the nodes are kept and rest are merged into smaller graph
+
+        self.linear = torch.nn.Linear(hidden_channels, out_channels)
     def forward(self, x, x2, edge_index, edge_attr ,pe):
         print(f'x.shape= {x.shape}')
         print(f'pe.shape= {pe.shape}')
@@ -70,10 +77,16 @@ class GAEncoder(torch.nn.Module):
         #x = pe
         print(f'x.shape= {x.shape}')
         print(f'edge_index.shape= {edge_index.shape}')
-        x = F.relu(self.conv1(x, edge_index)) #.mean(dim=1)
+        print(f'edge_attr.shape= {edge_attr.shape}')
+
+        x = F.relu(self.conv1(x, edge_index, edge_attr)) #.mean(dim=1)
+
+        print(f'-->x.shape= {x.shape}')
 
         #x2 = self.dropout(x2)
-        x2 = F.relu(self.conv(x2, edge_index))
+        x2 = F.relu(self.conv(x2, edge_index, edge_attr))
+
+        print(f'-->x2.shape= {x2.shape}')
         #x2 = self.graph_lin(x2)
 
         print(f'x2:{x2}')
@@ -85,14 +98,17 @@ class GAEncoder(torch.nn.Module):
         print(f'x.shape= {x.shape}')
         print(f'edge_index.shape= {edge_index.shape}')
         x, edge_index,edge_attr, _, _, _ = self.pool(x, edge_index, edge_attr)
-        print(f'x.shape= {x.shape}')
-        print(f'edge_index.shape= {edge_index.shape}')
+        print(f'==> x.shape= {x.shape}')
+        print(f'==> edge_index.shape= {edge_index.shape}')
 
-        x = F.relu(self.conv2(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index, edge_attr))
         print(f'x.shape= {x.shape}')
         x = self.conv3(x, edge_index)
         print(f'x= {x}')
         print(f'x.shape= {x.shape}')
+
+        x = F.relu(self.linear(x))
+        print(f'>>>>>>>>> x.shape= {x.shape}')
 
         x = global_mean_pool(x, batch=None)
         print(f'x.shape= {x.shape}')
@@ -100,24 +116,16 @@ class GAEncoder(torch.nn.Module):
 
 
 class GADecoder(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, edge_dim, in_channels, hidden_channels, out_channels):
         super().__init__()
-        self.decoder_conv1 = GCNConv(out_channels, hidden_channels)
+        #self.decoder_conv1 = GCNConv(out_channels, hidden_channels)
+        self.decoder_conv1 = GATv2Conv(out_channels, hidden_channels, edge_dim=edge_dim)
         self.decoder_conv2 = GCNConv(hidden_channels, 13)
         self.decoder_conv3 = GCNConv(13, 13)
         self.linear1 = torch.nn.Linear(out_channels, 13)
         self.linear2 = torch.nn.Linear(13, 13)
 
-    def forward(self, z, num_nodes, edge_index, pe):
-        #x_unpooled = torch.zeros((num_nodes, z.size(1)), device=z.device)
-
-        # Assign pooled features to each node
-        #for i in range(num_nodes):
-        #    start_idx = i * 13 # 13 is the number of features per node
-        #    end_idx = start_idx + 13
-        #    x_unpooled[i, :] = z[start_idx:end_idx].mean(dim=0)
-
-        #print(f'x_unpooled.shape = {x_unpooled.shape}') ---> this gave nans
+    def forward(self, z, num_nodes, edge_index, edge_attr,  pe):
 
         print(f'z.shape:{z.shape}')
         z = torch.tile(z, (num_nodes, 1))
@@ -127,7 +135,7 @@ class GADecoder(torch.nn.Module):
         print(f'pe.shape:{pe.shape}')
 
 
-        z1 = self.decoder_conv1(z, edge_index)
+        z1 = self.decoder_conv1(z, edge_index, edge_attr)
 
         z1 = F.relu(z1)
         print(f'z1.shape:{z1.shape}')
