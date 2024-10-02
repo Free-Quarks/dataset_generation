@@ -11,39 +11,6 @@ from torch_geometric.nn.inits import reset
 from torch_geometric.utils import negative_sampling
 import torch.nn.functional as F
 
-# Directory with graphs data with csv files
-
-from sklearn.preprocessing import OneHotEncoder
-
-class GraphLinearLayer(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(GraphLinearLayer, self).__init__()
-        self.linear = torch.nn.Linear(in_channels, out_channels)
-
-    def forward(self, x, edge_index):
-        """
-        Forward pass through the model.
-
-        Parameters:
-        - x: Node feature matrix of shape [num_nodes, num_node_features].
-        - edge_index: Edge index tensor of shape [2, num_edges].
-
-        Returns:
-        - Transformed aggregated features of shape [num_nodes, out_features].
-        """
-        #Finding neighbors and aggregate their features
-        row, col = edge_index
-        neighbor_features = x[col]  # Features of neighbors
-        aggregated_features = neighbor_features.sum(dim=0)  # Summing up neighbor features
-
-        #Apply linear transformation
-        transformed_features = self.linear(aggregated_features)
-
-        return transformed_features
-
-
-
-
 
 ######### GAE from https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/models/autoencoder.html#GAE
 class GAEncoder(torch.nn.Module):
@@ -151,7 +118,9 @@ class GADecoder(torch.nn.Module):
         print(f'z1.shape:{z1.shape}')
         print(f'----> z1:{z1}')
 
-        print()
+        #z1 = F.relu(self.linear1(z1))
+
+
         return z1
 
 

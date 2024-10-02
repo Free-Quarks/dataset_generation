@@ -225,6 +225,8 @@ def data_for_GCN(df, df_nodes_relationship):
     #print(f'encoded_vectors:{encoded_vectors}')
     #print(f'torch.tensor(encoded_vectors).shape:{torch.tensor(encoded_vectors).shape}')
 
+
+
     edge_type_mapping = {'Metadata': 1, 'Port_Of': 2, 'Contains': 3, 'Wire': 4, 'Pre': 5, 'Condition': 5, 'Body': 6}
     df_nodes_relationship['edge_type'] = df_nodes_relationship['edge_type'].map(edge_type_mapping)
 

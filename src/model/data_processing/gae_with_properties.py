@@ -112,6 +112,7 @@ if __name__ == "__main__":
     model = GraphAutoEncoder(GAEncoder(256, 7, num_features, 40, 38), GADecoder(7,38, 40, 38))#InnerProductDecoder())
     #model = GraphAutoEncoder(GAEncoder(num_features, 24, 12), GADecoder())
     model = model.to(device)  # move model to gpu if available
+    print(model)
 
     # Initialize the optim izer
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -173,10 +174,14 @@ if __name__ == "__main__":
 
         # writer.add_scalar('Loss/train', loss.item(), epoch)
 
+        print(model)
+
+        torch.save(model.state_dict(), './models/gae/graph_model.pth')
+
 
 
         '''auc, avg_prec = evaluate(tdata) #, test_data.neg_edge_label_index)
         print(f'Epoch: {epoch} ==> AUC: {auc:.4f}, Avg. Precision: {avg_prec:.4f}')
         times.append(time.time() - start)
         print(f"Median time per epoch: {torch.tensor(times).median():.4f}s")'''
-        times.append(time.time() - start)
+        print(times.append(time.time() - start))
