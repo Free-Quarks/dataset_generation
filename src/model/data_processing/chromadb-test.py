@@ -173,32 +173,14 @@ class ChromaGraphEmbedding(EmbeddingFunction):
         self.model_checkpoint = codet_checkpoint
         self.graph_checkpoint = graph_checkpoint
 
-    def __call__(self, doc) -> chromadb.Embeddings:
+    def __call__(self, doc: Document) -> chromadb.Embeddings:
 
+        print("len([doc])", len([doc]))
         embeddings = []
+
         graph_model = self.model
         graph_model.load_state_dict(torch.load(self.graph_checkpoint))
         graph_model.eval()
-
-
-        # print("documents", documents)
-        # print("len(document_embeddings)", len(document_embeddings))
-        '''graph_list =  []
-        for i in range(len(doc)):
-            df, df_nodes_relationship = new_df(doc[i])
-            restructured_df = restructure_data(df, df_nodes_relationship, self.model_checkpoint)
-            print("i , restructured_df:", restructured_df)
-
-            graph_data = graph_positional_encoding([restructured_df])
-            print("-->graph_data:", graph_data)
-
-            graph_list.append(graph_data)
-
-            z = graph_model.encode(graph_data.x.to(device), graph_data.x2.to(device), graph_data.edge_index.to(device),
-                                 graph_data.edge_attr, graph_data.laplacian_eigenvector_pe.to(device))  # encodes the data
-
-            print("z:", z)
-            embeddings.append(z.tolist())'''
 
         df, df_nodes_relationship = new_df(doc)
         restructured_df = restructure_data(df, df_nodes_relationship, self.model_checkpoint)
@@ -285,13 +267,13 @@ if __name__ == "__main__":
     #del persistent_client
     #persistent_client = chromadb.PersistentClient()  # default settings
     # this gets the collection since it's already present
-    collection = persistent_client.get_collection("graph_data_code", embedding_function=embedding_function_chroma_graph)
+    collection = persistent_client.get_or_create_collection("graph_data_code", embedding_function=embedding_function_chroma_graph)
     print("collection", collection)
     #print("There are", collection.count(), "in the collection")
     for i, entry in enumerate(documents):
         print("i", i)
         print("entry", entry)
-        collection.add(ids=f"{i}", embeddings=embedding_function_chroma_graph(entry))
+        collection.add(ids=f"{i}", embeddings=embedding_function_chroma_graph(entry[0]))
         #metadatas=entry.metadata, documents=entry.page_content)
         print(f"{i} of {len(documents)} added to db")
 
