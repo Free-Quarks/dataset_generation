@@ -3,7 +3,8 @@ from typing import List
 import numpy as np
 import torch
 import chromadb
-from chromadb import Documents, Embeddings # EmbeddingFunction
+#from chromadb.api.types import (validate_embeddings)
+from chromadb import Documents, Embeddings #,EmbeddingFunction
 import glob
 from io import StringIO
 import tqdm
@@ -470,10 +471,10 @@ if __name__ == "__main__":
 
     embedding_function_chroma_graph = ChromaGraphEmbedding(CHECKPOINT, GRAPH_CHECKPOINT)
 
-    testing = embedding_function_chroma_graph(docs[0])
+    #testing = embedding_function_chroma_graph(docs[0])
     #testing = embedding_function_chroma_graph(this)
-    print("testing", testing)
-    print("type(testing)", type(testing))
+    #print("testing", testing)
+    #print("type(testing)", type(testing))
     #print("new shape ", np.array(testing).flatten().tolist())
     #print("another shape", np.array(testing).flatten().tolist().tolist())
 
